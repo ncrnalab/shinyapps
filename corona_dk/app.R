@@ -29,8 +29,8 @@ ui <- shinyUI(
         wellPanel (                
           HTML (paste ("<font size=5>National and regional data on corona spread from <a href='https://www.ssi.dk/sygdomme-beredskab-og-forskning/sygdomsovervaagning/c/covid19-overvaagning/arkiv-med-overvaagningsdata-for-covid19'>SSI</a>.</font><br/>",
                        "<font size=4>Data is updated automatically (typically released from SSI around 2pm (CET) on weekdays).", 
-                       "P-values are calculated by simple one-sided binomial tests with number of positive (successes),", 
-                       "number of test (trials), and 1-specificity as the probability of success.",
+                       "P-values are calculated by simple one-sided binomial tests with number of positives (successes),", 
+                       "number of tests (trials), and 1-specificity as the probability of success.",
                        "Note: P-values have not been corrected for multiple testing</font>"), sep="")
           
           
@@ -60,7 +60,7 @@ ui <- shinyUI(
       column (9,
         fluidRow (
           
-          HTML ("<font size=5><b>National burden</b></font>"),
+          HTML ("<font size=5><b>National COVID-19 burden in Denmark</b></font>"),
           
           plotlyOutput("national", height=600)
           
@@ -111,7 +111,8 @@ server <- shinyServer(function(input, output, session) {
     )
   
  
-  labeller <- c(pct_pos = "Fraction of positive tests", ntested = "Number of tests")
+  labeller_national <- c(pct_pos = "Fraction of positive tests (only new cases)", ntested = "Number of tests")
+  labeller_regional <- c(pct_pos = "Fraction of positive tests (new+previous cases)", ntested = "Number of tests")
   plegend <- c("TRUE" = "Corona detected (p<0.05)", "FALSE" = "Maybe just false positives", "NA" = "NA")
   pcolor <- structure (c("#d62728", "#2ca02c", "grey"), names = as.character (plegend))
   
@@ -120,7 +121,7 @@ server <- shinyServer(function(input, output, session) {
   b.test <- function (x, n, p) {
     
     if (is.na (n) || n<=0 || is.na (x) || x < 0) {
-      return (NA)
+      return (1)
     }
     return (binom.test (x, n, p=p, alternative="greater")$p.value)
   }
@@ -196,10 +197,9 @@ server <- shinyServer(function(input, output, session) {
       df.tests[,-1] <- apply (df.tests[,-1], 2, function (x) as.numeric(gsub (",", ".", gsub ("\\.", "", x))))
       
       df.tests <- df.tests %>% group_by (date) %>%
-        
         mutate (npositive = new_pos,
                 pct_pos = npositive / ntested,
-                p = b.test (npositive, ntested, 0.005))
+                pct_prev_pos = prev_pos / ntested)
       
       df.tests
     
@@ -225,6 +225,8 @@ server <- shinyServer(function(input, output, session) {
         df.regional[,-2] <- apply (df.regional[,-2], 2, function (x) as.numeric(gsub (",", ".", gsub ("\\.", "", x))))
         
         colnames (df.regional) <- c("municipal_id", "municipal_name", "cumulative_ntests", "cumulative_npositive", "population", "cumulative_incidence")
+        
+        df.regional[is.na (df.regional)] <- 0
         
         df.regional$date <- as.Date(as.character(data$date), format = c("%d%m%Y"))
         
@@ -314,7 +316,7 @@ server <- shinyServer(function(input, output, session) {
     
     data.m <- df.national %>% filter (!is.na (p)) %>% 
       group_by (date) %>%
-      mutate (p = b.test (npositive, ntested, 1-input$specificity)) %>%
+      mutate (p = b.test (npositive, ntested-prev_pos, 1-input$specificity)) %>%
       gather (var, val, c("pct_pos", "ntested"))
     
     data.m$var <- factor (data.m$var, levels = c("pct_pos", "ntested"))
@@ -325,7 +327,7 @@ server <- shinyServer(function(input, output, session) {
       geom_line  (data=data.m %>% filter (var == "pct_pos"), aes (x=date, y=val), color="black", alpha=0.3) + 
       geom_point (data=data.m %>% filter (var == "pct_pos"), aes (x=date, y=val, text=paste ("Number of positives:", npositive), color = legend)) + 
       geom_line  (data=data.m %>% filter (var == "ntested"), aes (x=date, y=val), color="black") + 
-      facet_wrap (~var, nrow=2, scales="free_y", labeller = as_labeller(labeller)) +
+      facet_wrap (~var, nrow=2, scales="free_y", labeller = as_labeller(labeller_national)) +
       scale_color_manual(values = pcolor) + 
       labs (x="", y="", color="") +
       ggtheme
@@ -418,7 +420,7 @@ server <- shinyServer(function(input, output, session) {
       geom_point(data=data.m %>% filter (var == "pct_pos"), aes (x=date, y=val, text=paste ("Number of positives:", npositive), color = legend)) + 
       scale_color_manual(values = pcolor) + 
       geom_line(data=data.m %>% filter (var == "ntested"), aes (x=date, y=val), color="black") + 
-      facet_wrap (~var, nrow=2, scales="free_y", labeller = as_labeller(labeller)) +
+      facet_wrap (~var, nrow=2, scales="free_y", labeller = as_labeller(labeller_regional)) +
       labs (x="", y="", color="") +
       ggtheme
     
