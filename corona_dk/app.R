@@ -18,6 +18,8 @@ ui <- shinyUI(
     
     useShinyjs(),
     
+  
+    
     fluidRow(
       column (12,
          titlePanel("Corona in DK")
@@ -31,7 +33,8 @@ ui <- shinyUI(
                        "<font size=4>Data is updated automatically (typically released from SSI around 2pm (CET) on weekdays).", 
                        "P-values are calculated by simple one-sided binomial tests with number of positives (successes),", 
                        "number of tests (trials), and 1-specificity as the probability of success.",
-                       "Note: P-values have not been corrected for multiple testing</font>"), sep="")
+                       "Note: P-values have not been corrected for multiple testing.",
+                       "Code available at <a href='https://github.com/ncrnalab/shinyapps'>github</a></font>"), sep="")
           
           
         ),
@@ -187,7 +190,6 @@ server <- shinyServer(function(input, output, session) {
       
       data <- ld[[1]] # most recent data
       
-      print (data$file)    
       df.tests <- read.table(unz(data$file, "Test_pos_over_time.csv"), sep=";", header=T, dec=",", colClasses="character")
       
       colnames (df.tests) <- c("date", "new_pos", "not_prev_pos", "pos_pct", "prev_pos", "ntested", "cumulative_ntested")
@@ -284,22 +286,12 @@ server <- shinyServer(function(input, output, session) {
   
   observe ({
      
-     df.recent <- get_recent_regional ()
+     df.recent <- get_regional ()
      
-     df.recent$mtext <- df.recent$municipal_name
+     mtext <- unique (df.recent$municipal_name)
      
-     print ("detecting alerts")
      
-     detected <- which(!is.na (df.recent$p) & df.recent$p < 0.05)
-     
-     cat(file=stderr(), "found ", length (detected), " regions with corona", "\n")
-     
-     if (length (detected) > 0) {
-       df.recent$mtext[detected] <- toupper (df.recent$mtext[detected])
-       
-     }
-     
-     updateSelectInput(session, "region", choices=sort (df.recent$mtext))
+     updateSelectInput(session, "region", choices=sort (mtext))
     
      
   })
@@ -402,7 +394,6 @@ server <- shinyServer(function(input, output, session) {
       return ()
     }
     
-    print (df.region %>% as.data.frame())
     
     data.m <- df.region %>%
       group_by (date) %>%
