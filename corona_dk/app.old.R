@@ -1,7 +1,6 @@
 library (shiny)
 library (plotly)
 library (tidyverse)
-library (shinydashboard)
 #library (shinyjs)
 #library (htmlwidgets)
 
@@ -14,56 +13,96 @@ source ("mapDK.R")
 
 load ("data/municipality.rda")
 
+
+dropdownButton <- function(label = "", status = c("default", "primary", "success", "info", "warning", "danger"), ..., width = NULL) {
+  
+  status <- match.arg(status)
+  # dropdown button content
+  html_ul <- list(
+    class = "dropdown-menu",
+    style = if (!is.null(width)) 
+      paste0("width: ", validateCssUnit(width), ";"),
+    lapply(X = list(...), FUN = tags$li, style = "margin-left: 10px; margin-right: 10px;")
+  )
+  # dropdown button apparence
+  html_button <- list(
+    class = paste0("btn btn-", status," dropdown-toggle"),
+    style = "width: 60%",
+    type = "button", 
+    `data-toggle` = "dropdown"
+  )
+  html_button <- c(html_button, list(label))
+  html_button <- c(html_button, list(tags$span(class = "caret")))
+  # final result
+  tags$div(
+    class = "dropdown",
+    do.call(tags$button, html_button),
+    do.call(tags$ul, html_ul),
+    tags$script(
+      "$('.dropdown-menu').click(function(e) {
+      e.stopPropagation();
+  });")
+)}
+
+
 # 
+ui <- shinyUI(
+  
 
-
-ui <- dashboardPage(
-  title = "Corona in DK",
   
-  dashboardHeader(
-    title = span(img(src = "covid19_transparent.png", height = 35), "Corona in DK")
-  ),
   
-  dashboardSidebar(width=0),
-  
-  dashboardBody(
+  fluidPage(
   
     tags$head(tags$script("$( document ).ready(function() { $('#notification').html ('fetching data from SSI...'); })")),
     
-    tags$head(tags$style(type="text/css", ".sidebar-toggle {visibility: hidden;}")),
-    
 
     fluidRow(
-      box (width=10,
-        HTML (   
-          paste ("<font size=5>National and regional data on corona spread from <a href='https://www.ssi.dk/sygdomme-beredskab-og-forskning/sygdomsovervaagning/c/covid19-overvaagning/arkiv-med-overvaagningsdata-for-covid19'>SSI</a>.</font><br/>",
+      column (12,
+         titlePanel("Corona in DK")
+      )
+    ),
+    
+    fluidRow(
+      column (12,
+        wellPanel (                
+          HTML (paste ("<font size=5>National and regional data on corona spread from <a href='https://www.ssi.dk/sygdomme-beredskab-og-forskning/sygdomsovervaagning/c/covid19-overvaagning/arkiv-med-overvaagningsdata-for-covid19'>SSI</a>.</font><br/>",
                        "<font size=4>Simply click the map for local COVIC-19 test data. The data is updated automatically (typically released from SSI around 2pm (CET) on weekdays).", 
                        "P-values are calculated by simple one-sided binomial tests with number of positives (successes),", 
                        "number of tests (trials), and 1-specificity as the probability of success.",
                        "Note: P-values have not been corrected for multiple testing.",
-                       "Code available at <a href='https://github.com/ncrnalab/shinyapps'>github</a></font>", sep=""))
+                       "Code available at <a href='https://github.com/ncrnalab/shinyapps'>github</a></font>"), sep="")
           
-      ),
-
-      box (width=2,
-           
-           sliderInput("specificity", "Test specificity", min = 0.9, max = 1, value=0.995, step=0.001)
-           
+          
+        )
       )
-    ),
-    fluidRow (
-      box (width=12,
-      
-        htmlOutput ("notification")
-        
-      )
-      
     ),
     
     fluidRow(
      
-      box (width = 6,
-           
+      column (12,
+        wellPanel (
+            
+          htmlOutput ("notification")
+          
+        )
+      )
+    ),
+      
+    fluidRow(
+      
+      column (2,
+         dropdownButton (label = "Settings", status = "default", width = "25%",
+      
+            sliderInput("specificity", "Test specificity", min = 0.9, max = 1, value=0.995, step=0.001)
+        
+         )
+      )
+    ),
+    
+    fluidRow(
+      
+      column(6, 
+         
          htmlOutput ("regional_text"),
          #HTML ("<font size=5><b>National COVID-19 burden in Denmark</b></font>"),
          
@@ -72,7 +111,7 @@ ui <- dashboardPage(
          
       ),
       
-      box (width=6,
+      column (6,
 
           plotlyOutput("burden", height=600)
           
@@ -273,7 +312,10 @@ server <- shinyServer(function(input, output, session) {
         mutate (ntested = cumulative_ntests - lag (cumulative_ntests),
                 npositive = cumulative_npositive - lag (cumulative_npositive),
                 pct_pos = npositive / ntested) 
-     
+      # %>%
+      #   group_by (municipal_name, date) %>% 
+      #   mutate (p = b.test (npositive, ntested, 0.005))
+      # 
       df.regional
       
     }) 
@@ -309,9 +351,10 @@ server <- shinyServer(function(input, output, session) {
     
   })
   
+  
  
-   
- 
+  
+  
   output$burden <- renderPlotly ({
     
     print ("PLOTTING: burden")
@@ -349,6 +392,39 @@ server <- shinyServer(function(input, output, session) {
     
   })
   
+  
+  # output$national <- renderPlotly({
+  #   
+  #   df.national <- get_national ()
+  #   
+  #   if (nrow (df.national) == 0) {
+  #     return ()
+  #   }
+  #   
+  #   data.m <- df.national %>% filter (!is.na (p)) %>% 
+  #     group_by (date) %>%
+  #     mutate (p = b.test (npositive, ntested-prev_pos, 1-input$specificity)) %>%
+  #     gather (var, val, c("pct_pos", "ntested"))
+  #   
+  #   data.m$var <- factor (data.m$var, levels = c("pct_pos", "ntested"))
+  #   
+  #   data.m$legend <- factor (plegend[as.character (data.m$p < 0.05)], levels = as.character (plegend))
+  #   
+  #   g <- ggplot () + 
+  #     geom_line  (data=data.m %>% filter (var == "pct_pos"), aes (x=date, y=val), color="black", alpha=0.3) + 
+  #     geom_point (data=data.m %>% filter (var == "pct_pos"), aes (x=date, y=val, text=paste ("Number of positives:", npositive), color = legend)) + 
+  #     geom_line  (data=data.m %>% filter (var == "ntested"), aes (x=date, y=val), color="black") + 
+  #     facet_wrap (~var, nrow=2, scales="free_y", labeller = as_labeller(labeller_national)) +
+  #     scale_color_manual(values = pcolor) + 
+  #     labs (x="", y="", color="") +
+  #     ggtheme
+  #   
+  #   
+  #   
+  #   ggplotly (g)
+  #   
+  # })
+  # 
   
   output$notification <- renderText ({
     
@@ -391,6 +467,45 @@ server <- shinyServer(function(input, output, session) {
   
   
   
+  # output$regional <- renderPlotly({
+  #   
+  #   print ("PLOTTING: regional")
+  #   # if (input$region == "") {
+  #   #   return()
+  #   # }
+  #   
+  #   df.region <- get_regional() %>% filter (tolower(municipal_name) == tolower(region()))
+  #   
+  #   if (nrow (df.region) == 0) {
+  #     return ()
+  #   }
+  #   
+  #   
+  #   data.m <- df.region %>%
+  #     group_by (date) %>%
+  #     mutate (p = b.test (npositive, ntested, 1-input$specificity)) %>%
+  #     #filter (!is.na (p)) %>%
+  #     gather (var, val, c("pct_pos", "ntested"))
+  #   
+  #   data.m$var <- factor (data.m$var, levels = c("pct_pos", "ntested"))
+  #   data.m$legend <- factor (plegend[as.character (data.m$p < 0.05)], levels = as.character (plegend))
+  #   
+  #   
+  #   
+  #   g <- ggplot () + 
+  #     geom_line(data=data.m %>% filter (var == "pct_pos"), aes (x=date, y=val), color="black", alpha=0.3) + 
+  #     geom_point(data=data.m %>% filter (var == "pct_pos"), aes (x=date, y=val, text=paste ("Number of positives:", npositive), color = legend)) + 
+  #     scale_color_manual(values = pcolor) + 
+  #     geom_line(data=data.m %>% filter (var == "ntested"), aes (x=date, y=val), color="black") + 
+  #     facet_wrap (~var, nrow=2, scales="free_y", labeller = as_labeller(labeller_regional)) +
+  #     labs (x="", y="", color="") +
+  #     ggtheme
+  #   
+  #   ggplotly (g)
+  #   
+  #   
+  # })
+  
   get_map_data <- reactive ({
     
     print ("get_map")
@@ -398,7 +513,18 @@ server <- shinyServer(function(input, output, session) {
     
     
   })
-
+  
+  # get_size <- reactive ({
+  #   
+  #   print ("getting size")
+  #   
+  #   #1:1.5 ratio
+  #   min (cdata$output_map_width*1.5, cdata$output_map_height)
+  #   
+  #     
+  # })
+  # 
+  
     
     
   output$map <- renderPlotly({
@@ -410,7 +536,7 @@ server <- shinyServer(function(input, output, session) {
     df.recent <- get_recent_regional ()
     df.map <- get_map_data ()
     
-    g <- mapDK (df.map, id="municipal_name", values = "pct_pos", data = df.recent)
+    g <- mapDK (df.map, id="municipal_name", values= "pct_pos", data = df.recent)
     
     
     ggplotly(g, tooltip="key")
@@ -432,10 +558,14 @@ server <- shinyServer(function(input, output, session) {
          
          df.map <- get_map_data ()
          
+         
          plot <- plotlyProxy("map", session) 
          
          
+         
          if (length (traces_map) > 0) {
+           
+           
            
            ntraces <- nrow (df.map %>% group_by (id) %>% summarize (n=n())) + 2
            
@@ -456,6 +586,7 @@ server <- shinyServer(function(input, output, session) {
              
            plot <- plot %>%
              plotlyProxyInvoke("addTraces", plotly_build(gg)$x$data)
+           
            
            
            traces_map <<- c(traces_map, structure (length (traces_map)+1, names=d$key))

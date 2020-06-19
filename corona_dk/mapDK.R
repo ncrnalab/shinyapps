@@ -183,7 +183,7 @@ mapDK <- function(shapedata, values = NULL, id = NULL, data,
       map <- geom_polygon(data=shapedata, aes_string(x = "long", y = "lat", group = "group", key="municipality"), colour = map.colour, size=0.5)
     }
     else {
-      map <- geom_polygon(data=shapedata, aes_string(x = "long", y = "lat", group = "group", key="municipality", fill = "values"), colour = map.colour, size=0.5)
+      map <- geom_polygon(data=shapedata, aes_string(x = "long", y = "lat", group = "group", key="municipality", fill = "values"), colour = map.colour, size=0.5) 
     }
     # if (discrete == TRUE) {
     #   scf <- scale_fill_discrete(name = guide.label)
@@ -214,5 +214,5 @@ mapDK <- function(shapedata, values = NULL, id = NULL, data,
   }
   
   #plot = plot + coord_map()
-  return(plot)
+  return(plot + labs (fill = "Fraction\npositive"))
 }
