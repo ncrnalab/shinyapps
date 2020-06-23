@@ -57,61 +57,68 @@ ui <- dashboardPage(
     width = 400,
     
     sidebarMenu(
-
-      menuItem(
-        "COUNTRIES",
-        tabName = "countries",
-        #checkboxGroupInput("countries", label=h3("Countries (cases/death)"),choices=c())
-        
-        DT::DTOutput("mytable"), 
-        
-        style = "height:500px; width:100%; overflow-y: scroll;overflow-x: scroll;"
-                
-        
-      ),
       
-      menuItem (
-        "GROUPS",
-        tabName = "group",
-        checkboxGroupInput("groups", label=h3("Groups"),choices=c("cases", "death"), selected = c("cases", "death"))
+        menuItem  (
+          "WORLD",
+          tabName = "ww"
+          
+        ),
         
+        menuItem  (
+          "USA",
+          tabName = "us"
+        ),
+        
+        id = "tabs"
+        
+    ),
+    
+    sidebarMenu (
       
-      ),
-      
-      menuItem (
-        "SETTINGS",
-        tabName = "settings",
-        selectInput("axis", label = h3("Set axis as..."), 
-                    choices = c("linear", "log10"), selected = "linear"),
+        menuItem  (
+          "GROUPS",
+          #tabName = "plots_groups",
+          checkboxGroupInput("groups", label=h4("Groups"),choices=c("cases", "death"), selected = c("cases", "death"))
+          
         
-        selectInput("relative", label = h3("Counts/Per capita..."), 
-                    choices = c("Counts", "Per Capita"), selected = "Counts"),
+        ),
         
-        selectInput("plot", label = h3("Plot countries..."), 
-                    choices = c("separated", "combined"), selected = "separated"),
+        menuItem  (
+          "SETTINGS",
+          #tabName = "plots_settings",
+          selectInput("axis", label = h4("Set axis as..."), 
+                      choices = c("linear", "log10"), selected = "linear"),
+          
+          selectInput("relative", label = h4("Counts/Per capita..."), 
+                      choices = c("Counts", "Per Capita"), selected = "Counts"),
+          
+          selectInput("plot", label = h4("Plot countries..."), 
+                      choices = c("separated", "combined"), selected = "separated"),
+          
+          selectInput("cases", label = h4("Treat cases..."), 
+                      choices = c("cumulative", "cases/day"), selected = "cumulative"),
+          
+          selectInput("date", label = h4("Set date... "), 
+                      choices = c("absolute", "relative to day100cases"), selected = "absolute"),
+          
+          selectInput("regression", label = h4("Regression... "), 
+                      choices = c("logistic", "exponential"), selected = "logistic"),
+          
+          
+          uiOutput("dates_ui")
+          # 
+          # sliderInput("dates", h3("Dates:"),
+          #             min = as.Date("2020-01-01","%Y-%m-%d"),
+          #             max = as.Date("2020-03-01","%Y-%m-%d"),
+          #             value=c(as.Date("2020-01-01"), as.Date ("2020-03-01")),
+          #             timeFormat="%Y-%m-%d")
+          # 
+          
         
-        selectInput("cases", label = h3("Treat cases..."), 
-                    choices = c("cumulative", "cases/day"), selected = "cumulative"),
+          )
         
-        selectInput("date", label = h3("Set date... "), 
-                    choices = c("absolute", "relative to day100cases"), selected = "absolute"),
-        
-        selectInput("regression", label = h3("Regression... "), 
-                    choices = c("logistic", "exponential"), selected = "logistic"),
-        
-        
-        uiOutput("dates_ui")
-        # 
-        # sliderInput("dates", h3("Dates:"),
-        #             min = as.Date("2020-01-01","%Y-%m-%d"),
-        #             max = as.Date("2020-03-01","%Y-%m-%d"),
-        #             value=c(as.Date("2020-01-01"), as.Date ("2020-03-01")),
-        #             timeFormat="%Y-%m-%d")
-        # 
-        
-        
-      )
     )
+      
   ),
   
   dashboardBody(height=950,
@@ -122,7 +129,30 @@ ui <- dashboardPage(
       tags$style(type="text/css", ".dataTables_filter {display: none;    }"
     )),
 
+    fluidRow(
+      box (width=12,
+           
+           HTML (paste ("<font size=3>Simply select countries and groups for analysis.", 
+                                    "Also, in settings, choose date-interval of interest (or project into future), and/or select different types of analysis/visualization.", 
+                                     "This is NOT made by a professional statistician or epidemiologist, and should not be a source of trust-worthy info.",
+                                     "The raw data on the other hand is from <a href='https://github.com/CSSEGISandData/COVID-19'>Johns Hopkins CSSE</a>.",
+                                     "Suggestions and comments are welcomed at tbh@mbg.au.dk or @ncrnalab on twitter</font>")
+                        )
+      )
+      
+    ),
     
+    
+    
+    fluidRow(
+      box (width=12,
+       
+        DT::DTOutput("mytable"), 
+        style = "height:500px; width:100%; overflow-y: scroll;overflow-x: scroll;" 
+      )
+      
+    ),
+       
      fluidRow (box (
        width=12,
        
@@ -147,61 +177,27 @@ ui <- dashboardPage(
          
        )
       )
-    
-    
-    # ,
-    #  box (
-    #    
-    #    htmlOutput ("delay_text"),
-    #    
-    #    plotlyOutput("delay", height=300)
-    #    
-    #  ),
-    #  
-    #  box (
-    #    
-    #    htmlOutput ("delay_mortality_text"),
-    #    
-    #    plotlyOutput("delay_mortality", height=300)
-    #    
-    #  )
-    #  
-    
-  )
-  
-
+  )  
 )
-
-
+     
+  
+# options (shiny.trace=F)
 
 # theme for ggplot
 ggtheme <- theme_bw() +
   theme (
     panel.background = element_rect(fill = "white", color="grey", size=1),
-    axis.title  = element_text(size = 16, color = "black"),
-    axis.text.y = element_text(size = 14, color = "black"),
-    axis.text.x = element_text(size = 14, color = "black"),
-    strip.text  = element_text(size = 16, color = "black"),
-    legend.title = element_text(size = 16, color = "black"),
-    legend.text = element_text(size = 15, color = "black"),
+    axis.title  = element_text(size = 12, color = "black"),
+    axis.text.y = element_text(size = 10, color = "black"),
+    axis.text.x = element_text(size = 10, color = "black"),
+    strip.text  = element_text(size = 12, color = "black"),
+    legend.title = element_text(size = 12, color = "black"),
+    legend.text = element_text(size = 10, color = "black"),
     legend.background = element_rect(fill = "transparent", colour = "transparent"),
     strip.background = element_blank()
     
   )
 
-
-# prepare current population to match data from Johns Hopkins...  
-current.population <- population %>% arrange (-year) %>% group_by (country) %>% top_n (year, n=1)
-
-current.population$country <- gsub("Brunei Darussalam", "Brunei", current.population$country)
-current.population$country <- gsub("Viet Nam", "Vietnam", current.population$country)
-current.population$country <- gsub("Russian Federation", "Russia", current.population$country)
-current.population$country <- gsub("United Kingdom of Great Britain and Northern Ireland", "United Kingdom", current.population$country)
-current.population$country <- gsub("Iran (Islamic Republic of)", "Iran", current.population$country)
-current.population$country <- gsub("Congo", "Congo (Kinshasa)", current.population$country)
-current.population$country <- gsub("United States of America", "US", current.population$country)
-
-spop <- structure (current.population$population, names = current.population$country)
 
 
 
@@ -211,6 +207,24 @@ spop <- structure (current.population$population, names = current.population$cou
 # Define server logic required to draw a histogram
 server <- shinyServer(function(input, output, session) {
   
+  
+  # prepare current population to match data from Johns Hopkins...  
+  current.population <- population %>% arrange (-year) %>% group_by (country) %>% top_n (year, n=1)
+  
+  current.population$country <- gsub("Brunei Darussalam", "Brunei", current.population$country)
+  current.population$country <- gsub("Viet Nam", "Vietnam", current.population$country)
+  current.population$country <- gsub("Russian Federation", "Russia", current.population$country)
+  current.population$country <- gsub("United Kingdom of Great Britain and Northern Ireland", "United Kingdom", current.population$country)
+  current.population$country <- gsub("Iran (Islamic Republic of)", "Iran", current.population$country)
+  current.population$country <- gsub("Congo", "Congo (Kinshasa)", current.population$country)
+  current.population$country <- gsub("United States of America", "US", current.population$country)
+  
+  spop <- structure (current.population$population, names = current.population$country)
+  
+  
+  
+  
+  
   # hack to avoid constant reconnect...
   autoInvalidate <- reactiveTimer(10000)
   observe({
@@ -218,22 +232,34 @@ server <- shinyServer(function(input, output, session) {
     cat(".")
   })
   
+  selection <- list (
+    ww = c("Denmark", "Sweden"),
+    us = c("New York")
+  )
+  
+  
+  
+  
   user_selection <- reactiveVal (F)
   
   get_selection <- reactive ({
     
-    print (paste ("get_selection", countries()))
+
+        
     
-    if (!user_selection ()) {
-      
-       c("Denmark", "Sweden")
-      
-      
-    } else {
-      
-      countries ()
-      
-    }
+    
+    # print (paste ("get_selection", countries()))
+    # 
+    # if (!user_selection ()) {
+    #   
+    #    c("Denmark", "Sweden")
+    #   
+    #   
+    # } else {
+    #   
+    #   countries ()
+    #   
+    # }
     
   })
   
@@ -247,7 +273,7 @@ server <- shinyServer(function(input, output, session) {
      
      print (dates)
   
-     sliderInput("dates", h3("Dates:"),
+     sliderInput("dates", h4("Dates:"),
                  min = dates[1],
                  max = dates[3],
                  value = dates[1:2],
@@ -282,11 +308,38 @@ server <- shinyServer(function(input, output, session) {
     
     print ("get_data")
 
-    df.cases <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")))
-    df.death <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")))
+    print (input)
+    print (input$tabs)
+    
+    if (input$tabs == "ww") {
+    
+      df.cases <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")))
+      df.death <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")))
+      
+      
+    } else if (input$tabs == "us") {
+    
+      
+      df.cases <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")))
+      df.death <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")))
+    
+      
+      colnames (df.cases)[7] <- "Country/Region"
+      colnames (df.death)[7] <- "Country/Region"
+    
+      df.pop <- df.death %>% group_by (`Country/Region`) %>%
+        summarize (pop = sum (Population))
+      
+      spop[df.pop$`Country/Region`] <<- df.pop$pop
+      
+      
+    }
+    
     
     df.cases.m <- melt_cases (df.cases, "cases")
     df.death.m <- melt_cases (df.death, "death")
+    
+    
     
     
     
@@ -388,9 +441,27 @@ server <- shinyServer(function(input, output, session) {
   
   proc_data <- reactive({
     
+    req (countries())
+    
     sel <- countries () #get_selection()
     
-    print (paste ("countries", sel, class(sel)))
+    print (paste ("countries", sel))
+    
+    if (length (sel) == 0) {
+      return (NULL)
+    }
+    
+    df.plot <- get_data () %>% filter (country %in% sel) #, date >= as.Date(input$dates[1])) #, date <= as.Date (input$dates[2]))
+    
+    
+    if (nrow (df.plot) == 0) {
+      return (NULL)
+    }
+    
+    # most recent selection
+    
+    selection[[input$tabs]] <<- sel
+      
     
     
     withProgress(message = 'Processing data', value = 0, {
@@ -400,9 +471,8 @@ server <- shinyServer(function(input, output, session) {
       
       #sel <- sapply (strsplit (countries(), " "), function (x) paste (x[1:(length(x)-1)], collapse=" "))
           
-      df.plot <- get_data () %>% filter (country %in% sel) #, date >= as.Date(input$dates[1])) #, date <= as.Date (input$dates[2]))
-    
-      
+     
+        
         
       print (paste ("df.plot", nrow (df.plot)))
       
@@ -536,6 +606,7 @@ server <- shinyServer(function(input, output, session) {
     # }
     # 
     
+    req (countries ())
     req (proc_data())
     
     regtext <- paste ("The semi-transparent lines reflect logistic regression using formula: y ~ L / (1 + 2^((x0-x)/k),",
@@ -723,11 +794,11 @@ server <- shinyServer(function(input, output, session) {
       mutate (inc = cases - lag (cases), rinc = inc / (spop[country]/1e6)) %>%
       top_n (reldate, n=5) %>% 
       group_by (country) %>%
-      summarize (mean_rinc = round(mean (rinc), 2), sd_rinc = sd (rinc), 
-                 mean_inc = round(mean (inc), 2), sd_inc = sd (inc), 
-                 cases = max(cases),
-                 cpcpm = round (max(cases) / (spop[unique(country)]/1e6), 1)) %>%
-      dplyr::select (country, mean_rinc, cases, cpcpm) %>%
+      summarize (daily_increment_pmc = round(mean (rinc), 2), 
+                 #mean_inc = round(mean (inc), 2), sd_inc = sd (inc), 
+                 total_cases = max(cases),
+                 total_cases_pmc = round (max(cases) / (spop[unique(country)]/1e6), 1)) %>%
+      dplyr::select (country, total_cases, total_cases_pmc, daily_increment_pmc, ) %>%
       arrange (country) 
     
   })
@@ -736,8 +807,20 @@ server <- shinyServer(function(input, output, session) {
     
     df <- get_table_data ()
     
-    print ("renderDT")
-    preselect <- which (df$country %in% c("Denmark", "Sweden"))
+    # if (!user_selection ()) {
+    #   print ("renderDT")
+    #   preselect <- which (df$country %in% c("Denmark", "Sweden"))
+    #   print (preselect)
+    # } else {
+    #   
+    #   preselect <- NULL
+    #   
+    # }
+    #   
+    
+    
+    preselect <- which (df$country %in% selection[[input$tabs]])
+    
     print (preselect)
     
     user_selection (T)
@@ -759,13 +842,15 @@ server <- shinyServer(function(input, output, session) {
     
     print ("table selection")
     
-    if (is.null(input$mytable_rows_selected) && !user_selection ()) {
-      
-      return (c("Denmark", "Sweden"))
-      
-    }
-    
+    # if (is.null(input$mytable_rows_selected) && !user_selection ()) {
+    #   
+    #   return (c("Denmark", "Sweden"))
+    #   
+    # }
+    # 
     df <- get_table_data ()
+    
+    print (input$mytable_rows_selected)
     
     sel <- df[input$mytable_rows_selected,] 
     
