@@ -6,8 +6,6 @@ library (dplyr)
 library (tidyr)
 library (RCurl)
 library (minpack.lm)
-library (future)
-library (promises)
 library (DT)
 library (shinydashboard)
 
@@ -21,7 +19,7 @@ ui <- dashboardPage(
   
     
     
-    title = span(img(src = "radar.svg", height = 35), "COVID-19"),
+    title = span(img(src = "covid19_transparent.png", height = 35), "COVID-19"),
     titleWidth = 400,
     dropdownMenu(
       #width =  400,
@@ -36,19 +34,7 @@ ui <- dashboardPage(
                                   "it appears to the right.",
                                   style = "display: inline-block; vertical-align: middle;")
       )
-      
-      # ,
-      # 
-      # HTML (paste ("<font size=4>Simply select countries and groups for analysis.", 
-      #              "Also, in settings, choose date-interval of interest (or project into future), and/or select different types of analysis/visualization.", 
-      #              "This is NOT made by a professional statistician or epidemiologist, and should not be a source of trust-worthy info.",
-      #              "The raw data on the other hand is from <a href='https://github.com/CSSEGISandData/COVID-19'>Johns Hopkins CSSE</a>.",
-      #              "Suggestions and comments are welcomed at tbh@mbg.au.dk or @ncrnalab on twitter</font>")
-      # ),
-      # notificationItem(
-      #   text = "",
-      #   icon = icon("spinner")
-      # )
+  
     )
   ),
   
@@ -77,7 +63,6 @@ ui <- dashboardPage(
       
         menuItem  (
           "GROUPS",
-          #tabName = "plots_groups",
           checkboxGroupInput("groups", label=h4("Groups"),choices=c("cases", "death"), selected = c("cases", "death"))
           
         
@@ -85,7 +70,6 @@ ui <- dashboardPage(
         
         menuItem  (
           "SETTINGS",
-          #tabName = "plots_settings",
           selectInput("axis", label = h4("Set axis as..."), 
                       choices = c("linear", "log10"), selected = "linear"),
           
@@ -106,19 +90,9 @@ ui <- dashboardPage(
           
           
           uiOutput("dates_ui")
-          # 
-          # sliderInput("dates", h3("Dates:"),
-          #             min = as.Date("2020-01-01","%Y-%m-%d"),
-          #             max = as.Date("2020-03-01","%Y-%m-%d"),
-          #             value=c(as.Date("2020-01-01"), as.Date ("2020-03-01")),
-          #             timeFormat="%Y-%m-%d")
-          # 
-          
         
-          )
-        
+      )
     )
-      
   ),
   
   dashboardBody(height=950,
@@ -130,14 +104,13 @@ ui <- dashboardPage(
     )),
 
     fluidRow(
-      box (width=12,
+       box (width=12,
            
            HTML (paste ("<font size=3>Simply select countries and groups for analysis.", 
                                     "Also, in settings, choose date-interval of interest (or project into future), and/or select different types of analysis/visualization.", 
                                      "This is NOT made by a professional statistician or epidemiologist, and should not be a source of trust-worthy info.",
                                      "The raw data on the other hand is from <a href='https://github.com/CSSEGISandData/COVID-19'>Johns Hopkins CSSE</a>.",
-                                     "Suggestions and comments are welcomed at tbh@mbg.au.dk or @ncrnalab on twitter</font>")
-                        )
+                                     "Suggestions and comments are welcomed at tbh@mbg.au.dk or @ncrnalab on twitter</font>"))
       )
       
     ),
@@ -153,15 +126,15 @@ ui <- dashboardPage(
       
     ),
        
-     fluidRow (box (
+    fluidRow (box (
        width=12,
        
        htmlOutput ("timecurve_text"),
        
        plotlyOutput("timecurve", height=600)
-     )),
+    )),
     
-     fluidRow (
+    fluidRow (
        box (
          
          htmlOutput ("mortal_text"),
@@ -176,7 +149,7 @@ ui <- dashboardPage(
          plotlyOutput("doubling", height=300)
          
        )
-      )
+    )
   )  
 )
      
@@ -219,11 +192,9 @@ server <- shinyServer(function(input, output, session) {
   current.population$country <- gsub("Congo", "Congo (Kinshasa)", current.population$country)
   current.population$country <- gsub("United States of America", "US", current.population$country)
   
+  
+  
   spop <- structure (current.population$population, names = current.population$country)
-  
-  
-  
-  
   
   # hack to avoid constant reconnect...
   autoInvalidate <- reactiveTimer(10000)
@@ -236,32 +207,6 @@ server <- shinyServer(function(input, output, session) {
     ww = c("Denmark", "Sweden"),
     us = c("New York")
   )
-  
-  
-  
-  
-  user_selection <- reactiveVal (F)
-  
-  get_selection <- reactive ({
-    
-
-        
-    
-    
-    # print (paste ("get_selection", countries()))
-    # 
-    # if (!user_selection ()) {
-    #   
-    #    c("Denmark", "Sweden")
-    #   
-    #   
-    # } else {
-    #   
-    #   countries ()
-    #   
-    # }
-    
-  })
   
   
   grps <- reactive({ input$groups }) %>% debounce(800)
@@ -296,21 +241,18 @@ server <- shinyServer(function(input, output, session) {
   
   
   
-  observe ({
-    
-    d <- input$dates
-    print ("dates invoked")
-    
-  })
-  
+  # observe ({
+  #   
+  #   d <- input$dates
+  #   print ("dates invoked")
+  #   
+  # })
+  # 
   
   get_data <- reactive ({
     
     print ("get_data")
 
-    print (input)
-    print (input$tabs)
-    
     if (input$tabs == "ww") {
     
       df.cases <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")))
@@ -339,14 +281,11 @@ server <- shinyServer(function(input, output, session) {
     df.cases.m <- melt_cases (df.cases, "cases")
     df.death.m <- melt_cases (df.death, "death")
     
-    
-    
-    
-    
+
     df.data <- rbind (df.cases.m, df.death.m) %>%
       mutate (date    = as.Date (time, format = "%m/%d/%y"),
               reldate = as.numeric (date - min (date)),
-              type = factor (type, levels=c("cases", "death")))
+              type    = factor (type, levels=c("cases", "death")))
     
     df.data
               
@@ -437,13 +376,11 @@ server <- shinyServer(function(input, output, session) {
   
   
   # Main processing of data
-  
-  
   proc_data <- reactive({
     
     req (countries())
     
-    sel <- countries () #get_selection()
+    sel <- countries () 
     
     print (paste ("countries", sel))
     
@@ -458,28 +395,17 @@ server <- shinyServer(function(input, output, session) {
       return (NULL)
     }
     
-    # most recent selection
+    # save most recent selection
     
     selection[[input$tabs]] <<- sel
-      
-    
     
     withProgress(message = 'Processing data', value = 0, {
       
       # Process data - filter countries, fit models, and 
       print ("proc_data")
       
-      #sel <- sapply (strsplit (countries(), " "), function (x) paste (x[1:(length(x)-1)], collapse=" "))
-          
-     
-        
-        
-      print (paste ("df.plot", nrow (df.plot)))
-      
-      
-      print (input$dates)
-      
       dates <- get_dates ()
+      
       if (!is.null(input$dates)) {
         dates <- input$dates
       }
@@ -489,7 +415,7 @@ server <- shinyServer(function(input, output, session) {
       df.date <- as.data.frame (expand.grid (date=seq (as.Date(dates[1]), as.Date(dates[2]), 1),
                                              country=as.character (unique (df.plot$country)), type = as.character(unique (df.plot$type))))
       
-      print (paste ("df.date", nrow (df.date)))
+      
       
       df.plot <- merge (df.plot, df.date, by=c("date", "country", "type"), all.y=T)
       
@@ -513,7 +439,7 @@ server <- shinyServer(function(input, output, session) {
       
       
       if (input$relative == "Per Capita") {
-        df.plot$cases <- df.plot$cases / spop[df.plot$country]
+         df.plot$cases <- df.plot$cases / spop[df.plot$country]
       }
       
       
@@ -536,23 +462,22 @@ server <- shinyServer(function(input, output, session) {
       }
       
       
-      # fitting logistic/exponential curve
-      df.fit <- data.frame ()
       
-      df.plot$pred <- 0
       
       nprocesses <- length (unique (df.plot$country)) + 1
-      
       incProgress(1/nprocesses)
       
+      
       print ("fitting curve")
+      # fitting logistic/exponential curve
+      df.fit <- data.frame ()
+      df.plot$pred <- 0
+      
       
       for (c in unique (df.plot$country)) {
         
         lreg_cases <- fitmodel (df.plot %>% filter (type=="cases", !is.na (cases), cases > 0, country == c))
         
-        print (c)
-        print (nrow (df.plot %>% filter (type=="cases", !is.na (cases), cases > 0, country == c)))
         
         df.plot[df.plot$country==c & df.plot$type=="cases", "pred"] <- predict (lreg_cases$model, newdata=df.plot %>% filter (country==c, type=="cases"))
         
@@ -807,23 +732,11 @@ server <- shinyServer(function(input, output, session) {
     
     df <- get_table_data ()
     
-    # if (!user_selection ()) {
-    #   print ("renderDT")
-    #   preselect <- which (df$country %in% c("Denmark", "Sweden"))
-    #   print (preselect)
-    # } else {
-    #   
-    #   preselect <- NULL
-    #   
-    # }
-    #   
-    
     
     preselect <- which (df$country %in% selection[[input$tabs]])
     
     print (preselect)
     
-    user_selection (T)
     
     
     datatable(df, rownames = F, 
