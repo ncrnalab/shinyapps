@@ -84,8 +84,8 @@ ui <- dashboardPage(
   
 )
 
-
-
+# options ("shiny.trace" = FALSE)
+#getOption ("shiny.trace")
 
 # 
 server <- shinyServer(function(input, output, session) {
@@ -148,22 +148,46 @@ server <- shinyServer(function(input, output, session) {
       
       
       # getting url for data
+      
+      
+      
       thepage = readLines('https://www.ssi.dk/sygdomme-beredskab-og-forskning/sygdomsovervaagning/c/covid19-overvaagning/arkiv-med-overvaagningsdata-for-covid19')
+      
+      length (thepage)
+      
+      thepage <- unlist (strsplit (thepage, "</a><a"))
+      
+      
+      
       
       mypattern = 'https://files.ssi.dk/Data(.*?)"(.*)'
       
+      
       datalines = grep(mypattern,thepage,value=TRUE)
       
+      
       getexpr = function(s,g) substring(s,g,g+attr(g,'match.length')-1)
+      
       gg = gregexpr(mypattern,datalines)
+      
       matches = mapply(getexpr, datalines, gg)
+      
+      
       result = as.character(gsub(mypattern,'\\1',matches))
       
       print ("downloading data")
       
+      # remove duplicated entries
+      report_date <- unlist(sapply (strsplit (result, "-"), function (x) x[4]))
+      result <- result[!duplicated (report_date)]
       
+      # sort entries with most recent entry first
+      report_date <- unlist(sapply (strsplit (result, "-"), function (x) x[4]))
+      result <- result[order (as.Date(report_date, format="%d%m%Y"), decreasing = T)]
       
-      ld <- map (unique (result), function (x) {
+      x <- result[1]
+      
+      ld <- map (result, function (x) {
         
         url <- paste ("https://files.ssi.dk/Data", x, ".zip", sep="")
         
@@ -251,6 +275,8 @@ server <- shinyServer(function(input, output, session) {
         
         df.regional$date <- as.Date(as.character(data$date), format = c("%d%m%Y"))
         
+       
+        
         data$df.regional <- df.regional
         
         data
@@ -287,6 +313,7 @@ server <- shinyServer(function(input, output, session) {
     print ("get_recent_regional")
     
     df.regional <- get_regional ()
+   
     
     recent_date <- 
       df.regional %>% arrange (date) %>% tail (1) %>% .$date
