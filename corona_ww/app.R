@@ -109,7 +109,7 @@ ui <- dashboardPage(
            HTML (paste ("<font size=3>Simply select countries and groups for analysis.", 
                                     "Also, in settings, choose date-interval of interest (or project into future), and/or select different types of analysis/visualization.", 
                                      "This is NOT made by a professional statistician or epidemiologist, and should not be a source of trust-worthy info.",
-                                     "The raw data on the other hand is from <a href='https://github.com/CSSEGISandData/COVID-19'>Johns Hopkins CSSE</a>.",
+                                     "The raw data on the other hand is from <a href='https://github.com/CSSEGISandData/COVID-19'>Johns Hopkins CSSE</a>. And code is available from <a href=''> GitHub</a>",
                                      "Suggestions and comments are welcomed at tbh@mbg.au.dk or @ncrnalab on twitter</font>"))
       )
       
@@ -120,6 +120,9 @@ ui <- dashboardPage(
     fluidRow(
       box (width=12,
        
+        HTML (paste ("<b>Current stats.</b> Find for each country/state,",
+                     "the number of total cases and deaths, cases and death per million capita (pmc)",
+                     "and the daily increment of cases/death for the last 5 days per million capita.")),  
         DT::DTOutput("mytable"), 
         style = "height:500px; width:100%; overflow-y: scroll;overflow-x: scroll;" 
       )
@@ -240,14 +243,6 @@ server <- shinyServer(function(input, output, session) {
   })
   
   
-  
-  # observe ({
-  #   
-  #   d <- input$dates
-  #   print ("dates invoked")
-  #   
-  # })
-  # 
   
   get_data <- reactive ({
     
@@ -713,17 +708,24 @@ server <- shinyServer(function(input, output, session) {
     df.data <- get_data ()
     
     df.data %>% 
-      filter (type== "cases") %>% 
+      select (reldate, type, country, cases) %>%
+      spread (type, cases) %>%
+      #filter (type== "cases") %>% 
       arrange (reldate) %>% 
       group_by (country) %>%
-      mutate (inc = cases - lag (cases), rinc = inc / (spop[country]/1e6)) %>%
+      mutate (inc_cases = cases - lag (cases), inc_cases_pmc = inc_cases / (spop[country]/1e6),
+              inc_death = death - lag (death), inc_death_pmc = inc_death / (spop[country]/1e6)) %>%
       top_n (reldate, n=5) %>% 
       group_by (country) %>%
-      summarize (daily_increment_pmc = round(mean (rinc), 2), 
-                 #mean_inc = round(mean (inc), 2), sd_inc = sd (inc), 
-                 total_cases = max(cases),
-                 total_cases_pmc = round (max(cases) / (spop[unique(country)]/1e6), 1)) %>%
-      dplyr::select (country, total_cases, total_cases_pmc, daily_increment_pmc, ) %>%
+      summarize (daily_cases_pmc = round(mean (inc_cases_pmc), 2), 
+                 daily_death_pmc = round(mean (inc_death_pmc), 2), 
+                 total_cases = max(cases), 
+                 total_death = max (death),
+                 total_cases_pmc = round (max(cases) / (spop[unique(country)]/1e6), 1),
+                 total_death_pmc = round (max(death) / (spop[unique(country)]/1e6), 1)) %>%
+      dplyr::select (country, total_cases, total_death, 
+                     total_cases_pmc, total_death_pmc, 
+                     daily_cases_pmc, daily_death_pmc) %>%
       arrange (country) 
     
   })
