@@ -5,6 +5,9 @@ library (shinydashboard)
 #library (shinyjs)
 #library (htmlwidgets)
 
+#options ("shiny.trace" = FALSE)
+#getOption ("shiny.trace")
+
 
 if (rstudioapi::isAvailable()) {
   setwd (dirname (rstudioapi::getActiveDocumentContext()$path))
@@ -13,6 +16,7 @@ if (rstudioapi::isAvailable()) {
 source ("mapDK.R")
 
 load ("data/municipality.rda")
+
 
 # 
 
@@ -36,11 +40,11 @@ ui <- dashboardPage(
     fluidRow(
       box (width=10,
         HTML (   
-          paste ("<font size=5>National and regional data on corona spread from <a href='https://www.ssi.dk/sygdomme-beredskab-og-forskning/sygdomsovervaagning/c/covid19-overvaagning/arkiv-med-overvaagningsdata-for-covid19'>SSI</a>.</font><br/>",
-                       "<font size=4>Simply click the map for local COVIC-19 test data. The data is updated automatically (typically released from SSI around 2pm (CET) on weekdays).", 
-                       "P-values are calculated by simple one-sided binomial tests with number of positives (successes),", 
-                       "number of tests (trials), and 1-specificity as the probability of success.",
-                       "Note: P-values have not been corrected for multiple testing.",
+          paste ("<font size=5>National and regional data on corona spread from <a href='https://www.ssi.dk/sygdomme-beredskab-og-forskning/sygdomsovervaagning/c/covid19-overvaagning/arkiv-med-overvaagningsdata-for-covid19'>SSI</a>.</font><br/> ",
+                       "<font size=4>Simply click the map for local COVID-19 test data. The data is updated automatically (typically released from SSI around 2pm (CET) on weekdays). ", 
+                       "P-values are calculated by simple one-sided binomial tests with number of positives (successes), ", 
+                       "number of tests (trials), and 1-specificity as the probability of success. ",
+                       "Note: P-values have not been corrected for multiple testing. ",
                        "Code available at <a href='https://github.com/ncrnalab/shinyapps'>github</a></font>", sep=""))
           
       ),
@@ -84,11 +88,9 @@ ui <- dashboardPage(
   
 )
 
-# options ("shiny.trace" = FALSE)
-#getOption ("shiny.trace")
-
 # 
 server <- shinyServer(function(input, output, session) {
+
   
   
   # hack to avoid constant reconnect...
@@ -98,8 +100,7 @@ server <- shinyServer(function(input, output, session) {
     cat(".")
   })
   
-  options(shiny.trace = TRUE)
-
+  
   traces_map <- c()
   
   region <- reactiveVal ("Denmark")
@@ -123,7 +124,7 @@ server <- shinyServer(function(input, output, session) {
  
   #labeller_national <- c(pct_pos = "Fraction of positive tests (only new cases)", ntested = "Number of tests")
   #labeller_regional <- c(pct_pos = "Fraction of positive tests (new+previous cases)", ntested = "Number of tests")
-  labeller_general <- c(pct_pos = "Fraction of positive tests", ntested = "Number of tests")
+  labeller_general <- c(pct_pos = "Fraction of positive tests", ntested = "Number of tests", npositive = "Number of new positives")
   plegend <- c("TRUE" = "Corona detected (p<0.05)", "FALSE" = "Maybe just false positives", "NA" = "NA")
   pcolor <- structure (c("#d62728", "#2ca02c", "grey"), names = as.character (plegend))
   
@@ -353,23 +354,24 @@ server <- shinyServer(function(input, output, session) {
       return ()
     }
     
+    
     data.m <- df.region %>%
       group_by (date) %>%
-      mutate (p = b.test (npositive, ntested, 1-input$specificity)) %>%
-      gather (var, val, c("pct_pos", "ntested"))
+      mutate (p = b.test (npositive, ntested, 1-input$specificity), npos=npositive) %>%
+      gather (var, val, c("npositive", "pct_pos", "ntested"))
     
-    data.m$var <- factor (data.m$var, levels = c("pct_pos", "ntested"))
+    data.m$var <- factor (data.m$var, levels = c("npositive", "pct_pos", "ntested"))
     data.m$legend <- factor (plegend[as.character (data.m$p < 0.05)], levels = as.character (plegend))
     
     
     g <- ggplot () + 
-      geom_line(data=data.m %>% filter (var == "pct_pos"), aes (x=date, y=val, group=municipal_name), color="black", alpha=0.3) + 
-      geom_point(data=data.m %>% filter (var == "pct_pos"), aes (x=date, y=val, text=paste ("Number of positives:", npositive), color = legend)) + 
+      geom_line(data=data.m %>% filter (var != "ntested"), aes (x=date, y=val, group=municipal_name), color="black", alpha=0.3) + 
+      geom_point(data=data.m %>% filter (var != "ntested"), aes (x=date, y=val, text=paste ("Number of positives:", npos), color = legend)) + 
       scale_color_manual(values = pcolor) + 
       geom_line(data=data.m %>% filter (var == "ntested"), aes (x=date, y=val), color="black") + 
-      facet_wrap (~var, nrow=2, scales="free_y", labeller = as_labeller(labeller_general)) +
+      facet_wrap (~var, nrow=3, scales="free_y", labeller = as_labeller(labeller_general)) +
       labs (x="", y="", color="") +
-      ggtheme
+      ggtheme 
     
     ggplotly (g) 
     
@@ -430,17 +432,21 @@ server <- shinyServer(function(input, output, session) {
     
   output$map <- renderPlotly({
     
-    print ("PLOTTING: map")
-    
-    req (get_recent_regional (), get_map_data ())
-    
-    df.recent <- get_recent_regional ()
-    df.map <- get_map_data ()
-    
-    g <- mapDK (df.map, id="municipal_name", values = "pct_pos", data = df.recent)
-    
-    
-    ggplotly(g, tooltip="key")
+    withProgress(message = 'Drawing map', value = 0.3, {
+      
+      
+      print ("PLOTTING: map")
+      
+      req (get_recent_regional (), get_map_data ())
+      
+      df.recent <- get_recent_regional ()
+      df.map <- get_map_data ()
+      
+      g <- mapDK (df.map, id="municipal_name", values = "pct_pos", data = df.recent)
+      
+      
+      ggplotly(g, tooltip="key")
+    })
     
   })
   
