@@ -78,7 +78,7 @@ ui <- dashboardPage(
       
       box (width=6,
 
-          plotlyOutput("burden", height=600)
+         plotlyOutput("burden", height=632)
           
 
       )
@@ -138,6 +138,12 @@ server <- shinyServer(function(input, output, session) {
     return (binom.test (x, n, p=p, alternative="greater")$p.value)
   }
   
+  get_report_date <- function (result) {
+    
+    suppressWarnings (unlist(sapply (strsplit (result, "-"), function (x) {
+      x[which (nchar(x) == 8 & sapply (x, function (y) !is.na(as.numeric(y))))]})))
+    
+  }
   
   # Retrieving data from SSI homepage
   get_data <- reactive({
@@ -150,22 +156,15 @@ server <- shinyServer(function(input, output, session) {
       
       # getting url for data
       
-      
-      
       thepage = readLines('https://www.ssi.dk/sygdomme-beredskab-og-forskning/sygdomsovervaagning/c/covid19-overvaagning/arkiv-med-overvaagningsdata-for-covid19')
-      
-      length (thepage)
       
       thepage <- unlist (strsplit (thepage, "</a><a"))
       
+      mypattern <- '<a href="(.*?)"(.*)'
       
+      lines <- grepl ("https", thepage) & grepl ("rapport", tolower(thepage))& grepl ("data-epidemi", tolower(thepage))
       
-      
-      mypattern = 'https://files.ssi.dk/Data(.*?)"(.*)'
-      
-      
-      datalines = grep(mypattern,thepage,value=TRUE)
-      
+      datalines <- thepage[lines]
       
       getexpr = function(s,g) substring(s,g,g+attr(g,'match.length')-1)
       
@@ -178,22 +177,28 @@ server <- shinyServer(function(input, output, session) {
       
       print ("downloading data")
       
+      report_date <- get_report_date (result)
+      
+      
+      length (report_date) == length (result)
+     
       # remove duplicated entries
-      report_date <- unlist(sapply (strsplit (result, "-"), function (x) x[4]))
       result <- result[!duplicated (report_date)]
       
+      
       # sort entries with most recent entry first
-      report_date <- unlist(sapply (strsplit (result, "-"), function (x) x[4]))
       result <- result[order (as.Date(report_date, format="%d%m%Y"), decreasing = T)]
-      
-      x <- result[1]
-      
-      ld <- map (result, function (x) {
         
-        url <- paste ("https://files.ssi.dk/Data", x, ".zip", sep="")
+      map (result, function (x) {
         
-        report_date <- unlist(strsplit (url, "-"))[4]
-          
+        url <- x #paste ("https://files.ssi.dk/Data", x, ".zip", sep="")
+        
+        url[!grepl (".zip", url)] <- paste (url[!grepl (".zip", url)], ".zip", sep="") 
+        
+        url <- gsub ("\\?la=da", "", url)
+        
+        report_date <- get_report_date (x)
+        
         data <- list()
         data$date <- report_date
         data$valid_date <- nchar(report_date) == 8
@@ -235,7 +240,7 @@ server <- shinyServer(function(input, output, session) {
       
       df.tests$date <- as.Date(df.tests$date)
       df.tests <- df.tests %>% filter (!is.na (date))
-      df.tests[,-1] <- apply (df.tests[,-1], 2, function (x) as.numeric(gsub (",", ".", gsub ("\\.", "", x))))
+      suppressWarnings (df.tests[,-1] <- apply (df.tests[,-1], 2, function (x) as.numeric(gsub (",", ".", gsub ("\\.", "", x)))))
       
       df.tests <- df.tests %>% group_by (date) %>%
         mutate (npositive = new_pos,
@@ -265,19 +270,16 @@ server <- shinyServer(function(input, output, session) {
       
       ld <- map (ld, function (data) {
         
-        
         df.regional <- read.table(unz(data$file, "Municipality_test_pos.csv"), sep=";", header=T, dec=",", colClasses="character", encoding="UTF-8")
         
-        df.regional[,-2] <- apply (df.regional[,-2], 2, function (x) as.numeric(gsub (",", ".", gsub ("\\.", "", x))))
+        suppressWarnings (df.regional[,-2] <- apply (df.regional[,-2], 2, function (x) as.numeric(gsub (",", ".", gsub ("\\.", "", x)))))
         
         colnames (df.regional) <- c("municipal_id", "municipal_name", "cumulative_ntests", "cumulative_npositive", "population", "cumulative_incidence")
         
         df.regional[is.na (df.regional)] <- 0
         
         df.regional$date <- as.Date(as.character(data$date), format = c("%d%m%Y"))
-        
        
-        
         data$df.regional <- df.regional
         
         data
@@ -299,7 +301,7 @@ server <- shinyServer(function(input, output, session) {
         df.regional %>% arrange (date) %>% group_by (municipal_name) %>%
         mutate (ntested = cumulative_ntests - lag (cumulative_ntests),
                 npositive = cumulative_npositive - lag (cumulative_npositive),
-                pct_pos = npositive / ntested) 
+                pct_pos = npositive / ntested)
      
       df.regional
       
