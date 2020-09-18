@@ -2,6 +2,7 @@ library (shiny)
 library (plotly)
 library (tidyverse)
 library (shinydashboard)
+
 #library (shinyjs)
 #library (htmlwidgets)
 
@@ -140,8 +141,13 @@ server <- shinyServer(function(input, output, session) {
   
   get_report_date <- function (result) {
     
+    
     suppressWarnings (unlist(sapply (strsplit (result, "-"), function (x) {
-      x[which (nchar(x) == 8 & sapply (x, function (y) !is.na(as.numeric(y))))]})))
+     
+              
+       x[which (nchar(x) == 8 & sapply (x, function (y) !is.na(as.numeric(y))))]
+      
+    })))
     
   }
   
@@ -172,15 +178,17 @@ server <- shinyServer(function(input, output, session) {
       
       matches = mapply(getexpr, datalines, gg)
       
-      
       result = as.character(gsub(mypattern,'\\1',matches))
+      
+      
+      result <- result[result != ""]
+      
       
       print ("downloading data")
       
       report_date <- get_report_date (result)
       
-      
-      length (report_date) == length (result)
+      #length (report_date) == length (result))
      
       # remove duplicated entries
       result <- result[!duplicated (report_date)]
@@ -192,10 +200,14 @@ server <- shinyServer(function(input, output, session) {
       map (result, function (x) {
         
         url <- x #paste ("https://files.ssi.dk/Data", x, ".zip", sep="")
-        
+         
         url[!grepl (".zip", url)] <- paste (url[!grepl (".zip", url)], ".zip", sep="") 
         
-        url <- gsub ("\\?la=da", "", url)
+        url <- gsub ("\\?la=da", "", url)  # adaptation for the constant changes in data from SSI...
+        
+        url <- gsub ("\t", "", url)         # now SSI also includes tabs in url...
+          
+        print (url)
         
         report_date <- get_report_date (x)
         
@@ -236,6 +248,7 @@ server <- shinyServer(function(input, output, session) {
       
       df.tests <- read.table(unz(data$file, "Test_pos_over_time.csv"), sep=";", header=T, dec=",", colClasses="character")
       
+      
       colnames (df.tests) <- c("date", "new_pos", "not_prev_pos", "pos_pct", "prev_pos", "ntested", "cumulative_ntested")
       
       df.tests$date <- as.Date(df.tests$date)
@@ -268,7 +281,9 @@ server <- shinyServer(function(input, output, session) {
       
       ld <- get_data ()
       
+      
       ld <- map (ld, function (data) {
+        
         
         df.regional <- read.table(unz(data$file, "Municipality_test_pos.csv"), sep=";", header=T, dec=",", colClasses="character", encoding="UTF-8")
         
