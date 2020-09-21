@@ -192,10 +192,12 @@ server <- shinyServer(function(input, output, session) {
      
       # remove duplicated entries
       result <- result[!duplicated (report_date)]
+      report_date <- report_date[!duplicated (report_date)]
       
       
       # sort entries with most recent entry first
       result <- result[order (as.Date(report_date, format="%d%m%Y"), decreasing = T)]
+      
         
       map (result, function (x) {
         
@@ -206,8 +208,6 @@ server <- shinyServer(function(input, output, session) {
         url <- gsub ("\\?la=da", "", url)  # adaptation for the constant changes in data from SSI...
         
         url <- gsub ("\t", "", url)         # now SSI also includes tabs in url...
-          
-        print (url)
         
         report_date <- get_report_date (x)
         
