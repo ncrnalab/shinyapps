@@ -22,6 +22,8 @@ RUN wget --no-verbose https://s3.amazonaws.com/rstudio-shiny-server-os-build/ubu
 
 RUN R -e "install.packages(c('Rcpp', 'shiny', 'rmarkdown', 'plotly', 'tidyverse', 'shinydashboard'), repos='http://cran.rstudio.com/')"
 
+RUN chmod +x shiny-server.sh 
+
 COPY shiny-server.conf  /etc/shiny-server/shiny-server.conf
 COPY /corona_dk /srv/shiny-server/
 COPY /corona_ww /srv/shiny-server/
