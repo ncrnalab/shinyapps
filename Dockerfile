@@ -1,36 +1,12 @@
-FROM r-base:latest
+FROM rocker/shiny-verse
 
 MAINTAINER Thomas Hansen "tbh@mbg.au.dk"
 
-RUN apt-get update && apt-get install -y \
-    sudo \
-    gdebi-core \
-    pandoc \
-    pandoc-citeproc \
-    libcurl4-gnutls-dev \
-    libxt-dev \
-    libssl-dev \
-    libxml2 \
-    libxml2-dev
+RUN R -e "install.packages(c('plotly', 'shinydashboard', 'data.table', 'minpack.lm', 'DT', 'RCurl'), repos='http://cran.rstudio.com/')"
 
-# Download and install shiny server
-RUN wget --no-verbose https://s3.amazonaws.com/rstudio-shiny-server-os-build/ubuntu-12.04/x86_64/VERSION -O "version.txt" && \
-    VERSION=$(cat version.txt)  && \
-    wget --no-verbose "https://s3.amazonaws.com/rstudio-shiny-server-os-build/ubuntu-12.04/x86_64/shiny-server-$VERSION-amd64.deb" -O ss-latest.deb && \
-    gdebi -n ss-latest.deb && \
-    rm -f version.txt ss-latest.deb
+COPY /corona_dk /srv/shiny-server/corona_dk
+COPY /corona_ww /srv/shiny-server/corona_ww
 
-RUN R -e "install.packages(c('Rcpp', 'shiny', 'rmarkdown', 'plotly', 'tidyverse', 'shinydashboard'), repos='http://cran.rstudio.com/')"
+RUN chown shiny:shiny /srv/shiny-server/corona_dk/data
 
-
-COPY shiny-server.conf  /etc/shiny-server/shiny-server.conf
-COPY /corona_dk /srv/shiny-server/
-#COPY /corona_ww /srv/shiny-server/
-
-EXPOSE 80
-
-COPY shiny-server.sh /usr/bin/shiny-server.sh
-
-RUN chmod +x /usr/bin/shiny-server.sh 
-
-CMD ["/usr/bin/shiny-server.sh"]
+EXPOSE 3838
