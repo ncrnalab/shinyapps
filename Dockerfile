@@ -25,7 +25,7 @@ RUN R -e "install.packages(c('Rcpp', 'shiny', 'rmarkdown', 'plotly', 'tidyverse'
 
 COPY shiny-server.conf  /etc/shiny-server/shiny-server.conf
 COPY /corona_dk /srv/shiny-server/
-COPY /corona_ww /srv/shiny-server/
+#COPY /corona_ww /srv/shiny-server/
 
 EXPOSE 80
 
