@@ -4,7 +4,7 @@ steps:
   args: ['-c', 'docker pull gcr.io/$PROJECT_ID/shinyapps:latest || exit 0']
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', 
-         '-t', 'gcr.io/${PROJECT_ID}/shinyapps', 
+         '-t', 'gcr.io/${PROJECT_ID}/shinyapps:latest', 
          '--cache-from', 'gcr.io/$PROJECT_ID/shinyapps:latest',
          '.']
 timeout: 3600s
