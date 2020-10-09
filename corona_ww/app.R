@@ -109,7 +109,7 @@ ui <- dashboardPage(
            HTML (paste ("<font size=3>Simply select countries and groups for analysis.", 
                                     "Also, in settings, choose date-interval of interest (or project into future), and/or select different types of analysis/visualization.", 
                                      "This is NOT made by a professional statistician or epidemiologist, and should not be a source of trust-worthy info.",
-                                     "The raw data on the other hand is from <a href='https://github.com/CSSEGISandData/COVID-19'>Johns Hopkins CSSE</a>. And code is available from <a href=''> GitHub</a>",
+                                     "The raw data on the other hand is from <a href='https://github.com/CSSEGISandData/COVID-19'>Johns Hopkins CSSE</a>. And code is available from <a href='https://github.com/ncrnalab/shinyapps/tree/master/corona_ww'> GitHub</a>",
                                      "Suggestions and comments are welcomed at tbh@mbg.au.dk or @ncrnalab on twitter</font>"))
       )
       
@@ -194,6 +194,16 @@ server <- shinyServer(function(input, output, session) {
   current.population$country <- gsub("Iran (Islamic Republic of)", "Iran", current.population$country)
   current.population$country <- gsub("Congo", "Congo (Kinshasa)", current.population$country)
   current.population$country <- gsub("United States of America", "US", current.population$country)
+  current.population$country <- gsub("Republic of Korea", "Korea, South", current.population$country)
+  current.population$country <- gsub("West Bank and Gaza Strip", "West Bank and Gaza", current.population$country)
+  current.population$country <- gsub("Czech Republic", "Czechia", current.population$country)
+  current.population$country <- gsub("Iran (Islamic Republic of)", "Iran", current.population$country)
+  
+  
+  
+  
+  
+  
   
   
   
@@ -248,42 +258,53 @@ server <- shinyServer(function(input, output, session) {
     
     print ("get_data")
 
-    if (input$tabs == "ww") {
-    
-      df.cases <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")))
-      df.death <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")))
+    withProgress(message = 'Retrieving data...', value = 0, {
+        
+      
+      if (input$tabs == "ww") {
+      
+        df.cases <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")))
+        incProgress(0.25)
+        df.death <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")))
+        incProgress(0.25)
+        
+        
+      } else if (input$tabs == "us") {
+      
+        
+        df.cases <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")))
+        incProgress(0.25)
+        df.death <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")))
+        incProgress(0.25)
+        
+        
+        colnames (df.cases)[7] <- "Country/Region"
+        colnames (df.death)[7] <- "Country/Region"
+      
+        df.pop <- df.death %>% group_by (`Country/Region`) %>%
+          summarize (pop = sum (Population))
+        
+        spop[df.pop$`Country/Region`] <<- df.pop$pop
+        
+        
+      }
       
       
-    } else if (input$tabs == "us") {
-    
+      df.cases.m <- melt_cases (df.cases, "cases")
+      df.death.m <- melt_cases (df.death, "death")
       
-      df.cases <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")))
-      df.death <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")))
-    
+      incProgress(0.25)
       
-      colnames (df.cases)[7] <- "Country/Region"
-      colnames (df.death)[7] <- "Country/Region"
-    
-      df.pop <- df.death %>% group_by (`Country/Region`) %>%
-        summarize (pop = sum (Population))
+  
+      df.data <- rbind (df.cases.m, df.death.m) %>%
+        mutate (date    = as.Date (time, format = "%m/%d/%y"),
+                reldate = as.numeric (date - min (date)),
+                type    = factor (type, levels=c("cases", "death")))
       
-      spop[df.pop$`Country/Region`] <<- df.pop$pop
+      incProgress(0.25)
       
-      
-    }
-    
-    
-    df.cases.m <- melt_cases (df.cases, "cases")
-    df.death.m <- melt_cases (df.death, "death")
-    
-
-    df.data <- rbind (df.cases.m, df.death.m) %>%
-      mutate (date    = as.Date (time, format = "%m/%d/%y"),
-              reldate = as.numeric (date - min (date)),
-              type    = factor (type, levels=c("cases", "death")))
-    
-    df.data
-              
+      df.data
+    }) 
   })
 
   
@@ -732,24 +753,29 @@ server <- shinyServer(function(input, output, session) {
   
   output$mytable = DT::renderDT({
     
-    df <- get_table_data ()
     
-    
-    preselect <- which (df$country %in% selection[[input$tabs]])
-    
-    print (preselect)
-    
-    
-    
-    datatable(df, rownames = F, 
-               selection = list(mode = 'multiple', selected = preselect, target = 'row'), 
-               escape=F, 
-               options = list(paging = FALSE)) %>%
-      formatStyle(
-        'country',
-        backgroundColor = styleInterval(3.4, c('gray', 'yellow'))
-      )
-     
+    withProgress(message = 'Preparing table with stats', value = 0, {
+        
+      
+      df <- get_table_data ()
+      
+      
+      incProgress(0.5)
+      
+      preselect <- which (df$country %in% selection[[input$tabs]])
+      
+      print (preselect)
+      
+      
+      datatable(df, rownames = F, 
+                 selection = list(mode = 'multiple', selected = preselect, target = 'row'), 
+                 escape=F, 
+                 options = list(paging = FALSE)) %>%
+        formatStyle(
+          'country',
+          backgroundColor = styleInterval(3.4, c('gray', 'yellow'))
+        )
+    })
   })
   
   
