@@ -246,25 +246,32 @@ server <- shinyServer(function(input, output, session) {
       
       data <- ld[[1]] # most recent data
       
-      df.tests <- read.table(unz(data$file, "Test_pos_over_time.csv"), sep=";", header=T, dec=",", colClasses="character")
+      tryCatch ({
       
-      
-      colnames (df.tests) <- c("date", "new_pos", "not_prev_pos", "pos_pct", "prev_pos", "ntested", "cumulative_ntested")
-      
-      df.tests$date <- as.Date(df.tests$date)
-      df.tests <- df.tests %>% filter (!is.na (date))
-      suppressWarnings (df.tests[,-1] <- apply (df.tests[,-1], 2, function (x) as.numeric(gsub (",", ".", gsub ("\\.", "", x)))))
-      
-      df.tests <- df.tests %>% group_by (date) %>%
-        mutate (npositive = new_pos,
-                pct_pos = npositive / ntested,
-                pct_prev_pos = prev_pos / ntested)
-      
-      df.tests
-      
-      
+          df.tests <- read.table(unz(data$file, "Test_pos_over_time.csv"), sep=";", header=T, dec=",", colClasses="character")
+          
+          colnames (df.tests) <- c("date", "new_pos", "not_prev_pos", "pos_pct", "prev_pos", "ntested", "cumulative_ntested")
+          
+          df.tests$date <- as.Date(df.tests$date)
+          df.tests <- df.tests %>% filter (!is.na (date))
+          
+          suppressWarnings (df.tests[,-1] <- apply (df.tests[,-1], 2, function (x) as.numeric(gsub (",", ".", gsub ("\\.", "", x)))))
+          
+          df.tests <- df.tests %>% group_by (date) %>%
+            mutate (npositive = new_pos,
+                    pct_pos = npositive / ntested,
+                    pct_prev_pos = prev_pos / ntested)
+          
+          return (df.tests)
+          
+        }, error=function(cond) {
+          
+          print (cond)
+          return (NULL)
+          
+        }, finally={}
+      )
     })
-    
   })
   
   #Extract regional info
@@ -283,22 +290,29 @@ server <- shinyServer(function(input, output, session) {
       
       
       ld <- map (ld, function (data) {
-        
-        
-        df.regional <- read.table(unz(data$file, "Municipality_test_pos.csv"), sep=";", header=T, dec=",", colClasses="character", encoding="UTF-8")
-        
-        suppressWarnings (df.regional[,-2] <- apply (df.regional[,-2], 2, function (x) as.numeric(gsub (",", ".", gsub ("\\.", "", x)))))
-        
-        colnames (df.regional) <- c("municipal_id", "municipal_name", "cumulative_ntests", "cumulative_npositive", "population", "cumulative_incidence")
-        
-        df.regional[is.na (df.regional)] <- 0
-        
-        df.regional$date <- as.Date(as.character(data$date), format = c("%d%m%Y"))
-       
-        data$df.regional <- df.regional
-        
-        data
-        
+      
+        tryCatch ({
+          
+            df.regional <- read.table(unz(data$file, "Municipality_test_pos.csv"), sep=";", header=T, dec=",", colClasses="character", encoding="UTF-8")
+            
+            suppressWarnings (df.regional[,-2] <- apply (df.regional[,-2], 2, function (x) as.numeric(gsub (",", ".", gsub ("\\.", "", x)))))
+            
+            colnames (df.regional) <- c("municipal_id", "municipal_name", "cumulative_ntests", "cumulative_npositive", "population", "cumulative_incidence")
+            
+            df.regional[is.na (df.regional)] <- 0
+            
+            df.regional$date <- as.Date(as.character(data$date), format = c("%d%m%Y"))
+           
+            data$df.regional <- df.regional
+            
+            return (data)
+          
+          }, error=function (cond) {
+            print (cond)
+            return (NULL)
+          }, finally={}
+        )
+      
       })
       
       # bind into one data.frame
@@ -331,7 +345,6 @@ server <- shinyServer(function(input, output, session) {
     print ("get_recent_regional")
     
     df.regional <- get_regional ()
-   
     
     recent_date <- 
       df.regional %>% arrange (date) %>% tail (1) %>% .$date
@@ -347,7 +360,6 @@ server <- shinyServer(function(input, output, session) {
     
     print ("get_recent_regional_p")
     
-    
     df.recent <- get_recent_regional ()
     
     df.recent %>% mutate (p = b.test (npositive, ntested, 1-input$specificity))
@@ -355,11 +367,10 @@ server <- shinyServer(function(input, output, session) {
   })
   
  
-   
- 
   output$burden <- renderPlotly ({
     
     print ("PLOTTING: burden")
+  
     if (region () == "Denmark") {
       df.region <- get_national()
       df.region$municipal_name <- "Denmark"
@@ -370,7 +381,6 @@ server <- shinyServer(function(input, output, session) {
     if (nrow (df.region) == 0) {
       return ()
     }
-    
     
     data.m <- df.region %>%
       group_by (date) %>%

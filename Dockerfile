@@ -7,6 +7,8 @@ RUN R -e "install.packages(c('plotly', 'shinydashboard', 'data.table', 'minpack.
 COPY corona_dk /srv/shiny-server/corona_dk
 COPY corona_ww /srv/shiny-server/corona_ww
 
+RUN ls /srv/shiny-server
+
 RUN chown -R shiny:shiny /srv/shiny-server
 
 EXPOSE 3838
