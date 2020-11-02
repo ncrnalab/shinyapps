@@ -74,7 +74,7 @@ ui <- dashboardPage(
                       choices = c("linear", "log10"), selected = "linear"),
           
           selectInput("relative", label = h4("Counts/Per capita..."), 
-                      choices = c("Counts", "Per Capita"), selected = "Counts"),
+                      choices = c("Counts", "Per Capita"), selected = "Per Capita"),
           
           selectInput("plot", label = h4("Plot countries..."), 
                       choices = c("separated", "combined"), selected = "separated"),
@@ -107,9 +107,8 @@ ui <- dashboardPage(
        box (width=12,
            
            HTML (paste ("<font size=3>Simply select countries and groups for analysis.", 
-                                    "Also, in settings, choose date-interval of interest (or project into future), and/or select different types of analysis/visualization.", 
-                                     "This is NOT made by a professional statistician or epidemiologist, and should not be a source of trust-worthy info.",
-                                     "The raw data on the other hand is from <a href='https://github.com/CSSEGISandData/COVID-19'>Johns Hopkins CSSE</a>. And code is available from <a href='https://github.com/ncrnalab/shinyapps/tree/master/corona_ww'> GitHub</a>",
+                                    "Also, in settings, select different types of visualization and normalization.", 
+                                     "The raw datais from <a href='https://github.com/CSSEGISandData/COVID-19'>Johns Hopkins CSSE</a>. And code is available from <a href='https://github.com/ncrnalab/shinyapps/tree/master/corona_ww'> GitHub</a>",
                                      "Suggestions and comments are welcomed at tbh@mbg.au.dk or @ncrnalab on twitter</font>"))
       )
       
