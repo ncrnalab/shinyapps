@@ -86,7 +86,7 @@ ui <- dashboardPage(
                       choices = c("absolute", "relative to day100cases"), selected = "absolute"),
           
           selectInput("regression", label = h4("Regression... "), 
-                      choices = c("logistic", "exponential"), selected = "logistic"),
+                      choices = c("none", "logistic", "exponential"), selected = "none"),
           
           
           uiOutput("dates_ui")
@@ -136,22 +136,22 @@ ui <- dashboardPage(
        plotlyOutput("timecurve", height=600)
     )),
     
-    fluidRow (
-       box (
-         
-         htmlOutput ("mortal_text"),
-         
-         plotlyOutput("mortal", height=300)
-         
-       ),
-       box (
-         
-         htmlOutput ("doubling_text"),
-         
-         plotlyOutput("doubling", height=300)
-         
-       )
-    )
+    # fluidRow (
+    #    box (
+    #      
+    #      htmlOutput ("mortal_text"),
+    #      
+    #      plotlyOutput("mortal", height=300)
+    #      
+    #    ),
+    #    box (
+    #      
+    #      htmlOutput ("doubling_text"),
+    #      
+    #      plotlyOutput("doubling", height=300)
+    #      
+    #    )
+    # )
   )  
 )
      
@@ -300,6 +300,8 @@ server <- shinyServer(function(input, output, session) {
                 reldate = as.numeric (date - min (date)),
                 type    = factor (type, levels=c("cases", "death")))
       
+      print (colnames (df.data))
+      
       incProgress(0.25)
       
       df.data
@@ -381,11 +383,15 @@ server <- shinyServer(function(input, output, session) {
   
   paste_formula <- function (lreg) {
     
+    
+      
     if (input$regression == "exponential") {
       paste ("~ ", round (lreg$data$D, 1), " 2^(x/", round(lreg$data$E, 1), ")", sep="")
       
-    } else {
+    } else if (input$regression == "logistic") {
       paste ("~ ", round (lreg$data$B, 1), " / (1+2^((", round (lreg$data$A,1), "-x)/", round(lreg$data$C, 1), ")", sep="")
+    } else {
+      ""
     }
   }
   
@@ -488,48 +494,49 @@ server <- shinyServer(function(input, output, session) {
       df.fit <- data.frame ()
       df.plot$pred <- 0
       
-      
-      for (c in unique (df.plot$country)) {
+      if (input$regression != "none") {
         
-        lreg_cases <- fitmodel (df.plot %>% filter (type=="cases", !is.na (cases), cases > 0, country == c))
+        for (c in unique (df.plot$country)) {
+          
+          lreg_cases <- fitmodel (df.plot %>% filter (type=="cases", !is.na (cases), cases > 0, country == c))
+          
+          
+          df.plot[df.plot$country==c & df.plot$type=="cases", "pred"] <- predict (lreg_cases$model, newdata=df.plot %>% filter (country==c, type=="cases"))
+          
+          df.plot[df.plot$country==c & df.plot$type=="cases", "formula"] <- paste_formula (lreg_cases)
+          
+          # death
+          lreg_death <- fitmodel (df.plot %>% filter (type=="death", !is.na (cases), cases > 0, country == c), 
+                                  lower_C=lreg_cases$data$C,
+                                  upper_C=lreg_cases$data$C,
+                                  lower_A=lreg_cases$data$A,
+                                  upper_A=lreg_cases$data$A+10,
+                                  upper_B=lreg_cases$data$B,
+                                  exponential = input$regression == "exponential")
+          
+          
+          df.plot[df.plot$country==c & df.plot$type=="death", "pred"] <- predict (lreg_death$model, newdata=df.plot %>% filter (country==c, type=="death"))
+          df.plot[df.plot$country==c & df.plot$type=="death", "formula"] <- paste_formula (lreg_death)
+          
+          df.cases <- lreg_cases$data
+          df.death <- lreg_death$data
+          
+          colnames (df.cases) <- paste ("cases", colnames (df.cases), sep="_")
+          colnames (df.death) <- paste ("death", colnames (df.death), sep="_")
+          
+          df.fit <- rbind (df.fit, cbind (country=c, df.cases, df.death))
         
+          incProgress(1/nprocesses)
+          
+          
+        }
         
-        df.plot[df.plot$country==c & df.plot$type=="cases", "pred"] <- predict (lreg_cases$model, newdata=df.plot %>% filter (country==c, type=="cases"))
+        df.fit$ttd = df.fit$death_A - df.fit$cases_A
+        df.fit$rate <- df.fit$death_B / df.fit$cases_B
         
-        df.plot[df.plot$country==c & df.plot$type=="cases", "formula"] <- paste_formula (lreg_cases)
-        
-        # death
-        lreg_death <- fitmodel (df.plot %>% filter (type=="death", !is.na (cases), cases > 0, country == c), 
-                                lower_C=lreg_cases$data$C,
-                                upper_C=lreg_cases$data$C,
-                                lower_A=lreg_cases$data$A,
-                                upper_A=lreg_cases$data$A+10,
-                                upper_B=lreg_cases$data$B,
-                                exponential = input$regression == "exponential")
-        
-        
-        df.plot[df.plot$country==c & df.plot$type=="death", "pred"] <- predict (lreg_death$model, newdata=df.plot %>% filter (country==c, type=="death"))
-        df.plot[df.plot$country==c & df.plot$type=="death", "formula"] <- paste_formula (lreg_death)
-        
-        df.cases <- lreg_cases$data
-        df.death <- lreg_death$data
-        
-        colnames (df.cases) <- paste ("cases", colnames (df.cases), sep="_")
-        colnames (df.death) <- paste ("death", colnames (df.death), sep="_")
-        
-        df.fit <- rbind (df.fit, cbind (country=c, df.cases, df.death))
-      
-        incProgress(1/nprocesses)
-        
-        
+        df.fit$stderr <- sqrt ((df.fit$death_B_std / df.fit$death_B)^2 + (df.fit$cases_B_std / df.fit$cases_B)^2) * df.fit$rate
+        df.fit$ttd_rate <- df.fit$ttd# + log2(df.fit$rate)
       }
-      
-      df.fit$ttd = df.fit$death_A - df.fit$cases_A
-      df.fit$rate <- df.fit$death_B / df.fit$cases_B
-      
-      df.fit$stderr <- sqrt ((df.fit$death_B_std / df.fit$death_B)^2 + (df.fit$cases_B_std / df.fit$cases_B)^2) * df.fit$rate
-      df.fit$ttd_rate <- df.fit$ttd# + log2(df.fit$rate)
-      
     })
     
     return (list ("df.plot"=df.plot, "df.fit"=df.fit))
@@ -549,19 +556,22 @@ server <- shinyServer(function(input, output, session) {
     req (countries ())
     req (proc_data())
     
-    regtext <- paste ("The semi-transparent lines reflect logistic regression using formula: y ~ L / (1 + 2^((x0-x)/k),",
-                      "where L is the asymptote maxpoint, k is the doubling rate, and x0 is the infliction point.")
+    regtext <- ""
+    if (input$regression == "logistic") {
+        
+      regtext <- paste ("The semi-transparent lines reflect logistic regression using formula: y ~ L / (1 + 2^((x0-x)/k),",
+                        "where L is the asymptote maxpoint, k is the doubling rate, and x0 is the infliction point.")
     
-    if (input$regression == "exponential") {
+    } else if (input$regression == "exponential") {
+      
       regtext <- paste ("The semi-transparent lines reflect exponential regression using formula: y ~ A * 2^(x/k),",
                         "where k is the doubling rate.")
-      
-      
+    
+        
     }
     
     paste ("<b>Time-series analysis</b> based on selected countries and settings.", 
-           regtext,
-           "When fitting regression for death events, the doubling rate is pre-set to match cases")
+           regtext)
     
   })
   
@@ -601,8 +611,13 @@ server <- shinyServer(function(input, output, session) {
     
     gg <- ggplot (df.plot) + 
       geom_line (aes (x=x, y=cases, color=country, linetype=type)) + 
-      geom_line (aes (x=x, y=pred, color=country, linetype=type, text=formula), alpha=0.4) +
       ggtheme + labs (x="", y=ifelse (input$cases == "cases/day", paste ("Cases per day", ypostfix), paste ("Total cases", ypostfix)), color="", linetype="")
+    
+    if (input$regression != "none") {
+      
+      gg <- gg + geom_line (aes (x=x, y=pred, color=country, linetype=type, text=formula), alpha=0.4) 
+        
+    }
     
     if (input$axis == "log10") {
       
@@ -727,8 +742,10 @@ server <- shinyServer(function(input, output, session) {
     
     df.data <- get_data ()
     
+    print (colnames (df.data))
+    
     df.data %>% 
-      select (reldate, type, country, cases) %>%
+      dplyr::select (reldate, type, country, cases) %>%
       spread (type, cases) %>%
       #filter (type== "cases") %>% 
       arrange (reldate) %>% 
