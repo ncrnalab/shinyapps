@@ -166,13 +166,14 @@ server <- shinyServer(function(input, output, session) {
       
       thepage <- unlist (strsplit (thepage, "</a><a"))
       
-      mypattern <- '<a href="(.*?)"(.*)'
       
       lines <- grepl ("https", thepage) & grepl ("rapport", tolower(thepage))& grepl ("data-epidemi", tolower(thepage))
       
       datalines <- thepage[lines]
       
       getexpr = function(s,g) substring(s,g,g+attr(g,'match.length')-1)
+      
+      mypattern <- 'href="(.*?)"(.*)'
       
       gg = gregexpr(mypattern,datalines)
       
