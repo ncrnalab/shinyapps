@@ -162,7 +162,11 @@ server <- shinyServer(function(input, output, session) {
       
       # getting url for data
       
-      thepage = readLines('https://www.ssi.dk/sygdomme-beredskab-og-forskning/sygdomsovervaagning/c/covid19-overvaagning/arkiv-med-overvaagningsdata-for-covid19')
+      # thepage = readLines('https://www.ssi.dk/sygdomme-beredskab-og-forskning/sygdomsovervaagning/c/covid19-overvaagning/arkiv-med-overvaagningsdata-for-covid19')
+      
+      thepage = readLines('https://covid19.ssi.dk/overvagningsdata/download-fil-med-overvaagningdata')
+      
+      
       
       thepage <- unlist (strsplit (thepage, "</a><a"))
       
