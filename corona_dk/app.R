@@ -2,11 +2,12 @@ library (shiny)
 library (plotly)
 library (tidyverse)
 library (shinydashboard)
+library (stringi)
 
-if (rstudioapi::isAvailable()) {
+  if (rstudioapi::isAvailable()) {
   setwd (dirname (rstudioapi::getActiveDocumentContext()$path))
 }
-
+  
 source ("mapDK.R")
 
 load ("data/municipality.rda")
@@ -113,6 +114,24 @@ server <- shinyServer(function(input, output, session) {
   labeller_general <- c(pct_pos = "Fraction of positive tests", ntested = "Number of tests", npositive = "Number of new positives")
   plegend <- c("TRUE" = "Corona detected (p<0.05)", "FALSE" = "Maybe just false positives", "NA" = "NA")
   pcolor <- structure (c("#d62728", "#2ca02c", "grey"), names = as.character (plegend))
+  
+  
+  char_fix <- function (x) {
+  
+    x <- gsub ("Ãƒ.", "Ã¸", x)
+    x <- gsub ("Ã¸rÃ¸", "Ã†rÃ¸", x)
+    x <- gsub ("HolbÃ¸k", "HolbÃ¦k", x)
+    x <- gsub ("HalsnÃ¸s", "HalsnÃ¦s", x)
+    x <- gsub ("LÃ¸sÃ¸", "LÃ¦soe", x)
+    x <- gsub ("Lyngby.TaarbÃ¸k", "Lyngby.TaarbÃ¦k", x)
+    x <- gsub ("NÃ¸stved", "NÃ¦stved", x)
+    x <- gsub ("TÃ¸rnby", "TÃ¥rnby", x)
+    x <- gsub ("VallensbÃ¸k", "VallensbÃ¦k", x)
+    x <- gsub ("Copenhagen", "KÃ¸benhavn", x)
+
+    x
+    
+  }
   
   
   # one-sided binomial test
@@ -268,21 +287,9 @@ server <- shinyServer(function(input, output, session) {
       )
     })
   })
+
   
-  char_fix <- function (x) {
-    
-    x <- gsub ("Ã.", "ø", x)
-    x <- gsub ("ørø", "Ærø", x)
-    x <- gsub ("Holbøk", "Holbæk", x)
-    x <- gsub ("Halsnøs", "Halsnæs", x)
-    x <- gsub ("Løsø", "Læsoe", x)
-    x <- gsub ("Lyngby.Taarbøk", "Lyngby.Taarbæk", x)
-    x <- gsub ("Nøstved", "Næstved", x)
-    x <- gsub ("Tørnby", "Tårnby", x)
-    x <- gsub ("Vallensbøk", "Vallensbæk", x)
-    x <- gsub ("Copenhagen", "København", x)
-    x
-  }
+  
   
   get_regional <- reactive({
     
@@ -299,6 +306,7 @@ server <- shinyServer(function(input, output, session) {
       colnames (df.tests)[1] <- "date"
       df.tests$date <- as.Date (df.tests$date)
       
+      print (colnames (df.tests))
       
       colnames (df.tests) <- char_fix (colnames (df.tests))
       
