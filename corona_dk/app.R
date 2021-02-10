@@ -3,13 +3,6 @@ library (plotly)
 library (tidyverse)
 library (shinydashboard)
 
-#library (shinyjs)
-#library (htmlwidgets)
-
-#options ("shiny.trace" = FALSE)
-#getOption ("shiny.trace")
-
-
 if (rstudioapi::isAvailable()) {
   setwd (dirname (rstudioapi::getActiveDocumentContext()$path))
 }
@@ -17,9 +10,6 @@ if (rstudioapi::isAvailable()) {
 source ("mapDK.R")
 
 load ("data/municipality.rda")
-
-
-# 
 
 
 ui <- dashboardPage(
@@ -70,7 +60,6 @@ ui <- dashboardPage(
       box (width = 6,
            
          htmlOutput ("regional_text"),
-         #HTML ("<font size=5><b>National COVID-19 burden in Denmark</b></font>"),
          
          plotlyOutput("map", height=600) #plotlyOutput("national", height=600)
          
@@ -84,9 +73,7 @@ ui <- dashboardPage(
 
       )
     )
-    
   )
-  
 )
 
 # 
@@ -123,8 +110,6 @@ server <- shinyServer(function(input, output, session) {
     )
   
  
-  #labeller_national <- c(pct_pos = "Fraction of positive tests (only new cases)", ntested = "Number of tests")
-  #labeller_regional <- c(pct_pos = "Fraction of positive tests (new+previous cases)", ntested = "Number of tests")
   labeller_general <- c(pct_pos = "Fraction of positive tests", ntested = "Number of tests", npositive = "Number of new positives")
   plegend <- c("TRUE" = "Corona detected (p<0.05)", "FALSE" = "Maybe just false positives", "NA" = "NA")
   pcolor <- structure (c("#d62728", "#2ca02c", "grey"), names = as.character (plegend))
@@ -133,18 +118,24 @@ server <- shinyServer(function(input, output, session) {
   # one-sided binomial test
   b.test <- function (x, n, p) {
     
-    if (is.na (n) || n<=0 || is.na (x) || x < 0) {
-      return (1)
-    }
-    return (binom.test (x, n, p=p, alternative="greater")$p.value)
+    out <- apply (cbind (x, n), 1, FUN=function (b) {
+      
+      if (is.na (b['x']) || b['x']<=0 || is.na (b['n']) || b['n'] < 0) {
+        1
+      } else {
+        binom.test (b['x'], b['n'], p=p, alternative="greater")$p.value
+      }
+      
+    })
+    out
+    
   }
   
+
   get_report_date <- function (result) {
-    
-    
+
     suppressWarnings (unlist(sapply (strsplit (result, "-"), function (x) {
-     
-              
+
        x[which (nchar(x) == 8 & sapply (x, function (y) !is.na(as.numeric(y))))]
       
     })))
@@ -163,13 +154,8 @@ server <- shinyServer(function(input, output, session) {
       # getting url for data
       
       # thepage = readLines('https://www.ssi.dk/sygdomme-beredskab-og-forskning/sygdomsovervaagning/c/covid19-overvaagning/arkiv-med-overvaagningsdata-for-covid19')
-      
       thepage = readLines('https://covid19.ssi.dk/overvagningsdata/download-fil-med-overvaagningdata')
-      
-      
-      
       thepage <- unlist (strsplit (thepage, "</a><a"))
-      
       
       lines <- grepl ("https", thepage) & grepl ("rapport", tolower(thepage))& grepl ("data-epidemi", tolower(thepage))
       
@@ -184,15 +170,11 @@ server <- shinyServer(function(input, output, session) {
       matches = mapply(getexpr, datalines, gg)
       
       result = as.character(gsub(mypattern,'\\1',matches))
-      
-      
       result <- result[result != ""]
-      
-      
+
       print ("downloading data")
       
       report_date <- get_report_date (result)
-      
       #length (report_date) == length (result))
      
       # remove duplicated entries
@@ -202,12 +184,12 @@ server <- shinyServer(function(input, output, session) {
       
       # sort entries with most recent entry first
       result <- result[order (as.Date(report_date, format="%d%m%Y"), decreasing = T)]
-      
         
-      map (result, function (x) {
+      map (result[1], function (x) {
         
+        print (x)
         url <- x #paste ("https://files.ssi.dk/Data", x, ".zip", sep="")
-         
+        
         url[!grepl (".zip", url)] <- paste (url[!grepl (".zip", url)], ".zip", sep="") 
         
         url <- gsub ("\\?la=da", "", url)  # adaptation for the constant changes in data from SSI...
@@ -228,7 +210,15 @@ server <- shinyServer(function(input, output, session) {
           
           cat(file=stderr(), "downloading ", dest, "\n")
           
-          download.file(url, dest)
+          tryCatch({
+            download.file(url, dest)
+            data$found = T
+            
+          }, error=function (e) {
+            print (e)
+            data$found = F
+            
+          })
         }
         
         data
@@ -279,9 +269,78 @@ server <- shinyServer(function(input, output, session) {
     })
   })
   
-  #Extract regional info
+  char_fix <- function (x) {
+    
+    x <- gsub ("Ã.", "ø", x)
+    x <- gsub ("ørø", "Ærø", x)
+    x <- gsub ("Holbøk", "Holbæk", x)
+    x <- gsub ("Halsnøs", "Halsnæs", x)
+    x <- gsub ("Løsø", "Læsoe", x)
+    x <- gsub ("Lyngby.Taarbøk", "Lyngby.Taarbæk", x)
+    x <- gsub ("Nøstved", "Næstved", x)
+    x <- gsub ("Tørnby", "Tårnby", x)
+    x <- gsub ("Vallensbøk", "Vallensbæk", x)
+    x <- gsub ("Copenhagen", "København", x)
+    x
+  }
   
   get_regional <- reactive({
+    
+    ld <- get_data ()
+    
+    data <- ld[[1]] # most recent data
+    
+    df.regional <- tryCatch ({
+      
+      df.tests <- read.table(unz(data$file, "Municipality_tested_persons_time_series.csv"), sep=";", header=T, dec=",", colClasses="character")
+      #df.tests <- read.table(unz(data$file, "Municipality_tested_persons_time_series.csv"), sep=";", header=T, dec=",")
+      
+      
+      colnames (df.tests)[1] <- "date"
+      df.tests$date <- as.Date (df.tests$date)
+      
+      
+      colnames (df.tests) <- char_fix (colnames (df.tests))
+      
+      df.tests.m <- df.tests %>%
+        gather (municipal_name, ntested, -1)  %>%
+        mutate (ntested = as.integer (ntested))#"PrDate_adjusted")
+      
+      
+      df.pos <- read.table(unz(data$file, "Municipality_cases_time_series.csv"), sep=";", header=T, dec=",", colClasses="character")
+      
+      colnames (df.pos)[1] <- "date"
+      df.pos$date <- as.Date (df.pos$date)
+      
+      colnames (df.pos) <- char_fix (colnames (df.pos))
+      
+      
+      df.pos.m <- df.pos %>%
+        gather (municipal_name, npositive, -1) %>%
+        mutate (npositive = as.integer (npositive)) #"PrDate_adjusted")
+      
+      df <- merge (df.tests.m, df.pos.m, by=c("date", "municipal_name")) 
+      
+      #df$municipal_name <- remove_dk (df$municipal_name) 
+      df$pct_pos <- df$npositive / df$ntested
+      
+      df
+      
+    }, error=function(cond) {
+      
+      print (cond)
+      return (NULL)
+      
+    }, finally={})
+    
+    
+    df.regional
+    
+    
+  })
+  
+  
+  get_regional_old <- reactive({
     
     print ("get_regional")
     
@@ -290,11 +349,7 @@ server <- shinyServer(function(input, output, session) {
     
     withProgress(message = 'Preparing regional data', value = 0.6, {
       
-      
-      ld <- get_data ()
-      
-      
-      ld <- map (ld, function (data) {
+      ld <- map (get_data (), function (data) {
       
         tryCatch ({
           
@@ -351,10 +406,15 @@ server <- shinyServer(function(input, output, session) {
     
     df.regional <- get_regional ()
     
-    recent_date <- 
-      df.regional %>% arrange (date) %>% tail (1) %>% .$date
+    # sum the last 5 days
+    recent_dates <- unique (df.regional$date) %>% tail (5)
     
-    df.recent <- df.regional %>% filter (date == recent_date)
+    df.recent <- df.regional %>% filter (date %in% recent_dates) %>%
+      group_by (municipal_name) %>%
+      summarize (ntested = sum(ntested),
+                 npositive = sum (npositive)) %>%
+      mutate (pct_pos = npositive / ntested,
+              date = recent_dates %>% tail(1))
     
     df.recent
     
@@ -368,6 +428,7 @@ server <- shinyServer(function(input, output, session) {
     df.recent <- get_recent_regional ()
     
     df.recent %>% mutate (p = b.test (npositive, ntested, 1-input$specificity))
+    
     
   })
   
@@ -416,7 +477,7 @@ server <- shinyServer(function(input, output, session) {
     print ("notification...")
 
     df.recent.regional <- get_recent_regional_p () 
-    
+  
     if (nrow (df.recent.regional) == 0) {
       return ()
     }
