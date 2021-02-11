@@ -108,7 +108,7 @@ ui <- dashboardPage(
            
            HTML (paste ("<font size=3>Simply select countries and groups for analysis.", 
                                     "Also, in settings, select different types of visualization and normalization.", 
-                                     "The raw datais from <a href='https://github.com/CSSEGISandData/COVID-19'>Johns Hopkins CSSE</a>. And code is available from <a href='https://github.com/ncrnalab/shinyapps/tree/master/corona_ww'> GitHub</a>",
+                                     "The raw data is from <a href='https://github.com/CSSEGISandData/COVID-19'>Johns Hopkins CSSE</a>. And code is available from <a href='https://github.com/ncrnalab/shinyapps/tree/master/corona_ww'> GitHub</a>",
                                      "Suggestions and comments are welcomed at tbh@mbg.au.dk or @ncrnalab on twitter</font>"))
       )
       
@@ -262,9 +262,11 @@ server <- shinyServer(function(input, output, session) {
       
       if (input$tabs == "ww") {
       
-        df.cases <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")))
+        df.cases <- as.data.frame (fread("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"))
+        #df.cases <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")))
         incProgress(0.25)
-        df.death <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")))
+        df.death <- as.data.frame (fread("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv"))
+        #df.death <- as.data.frame (fread(getURL("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")))
         incProgress(0.25)
         
         
@@ -313,7 +315,7 @@ server <- shinyServer(function(input, output, session) {
   melt_cases <- function (df, type="cases") {
     
     df %>% 
-      gather (time, cases, contains ("/20")) %>%
+      gather (time, cases, contains ("/2")) %>%
       group_by (country=`Country/Region`, time) %>%
       summarize (cases = sum(cases), type=type) 
     
