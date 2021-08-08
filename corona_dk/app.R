@@ -139,7 +139,7 @@ server <- shinyServer(function(input, output, session) {
     
     out <- apply (cbind (x, n), 1, FUN=function (b) {
       
-      if (is.na (b['x']) || b['x']<=0 || is.na (b['n']) || b['n'] < 0) {
+      if (is.na (b['x']) || b['x']<=0 || is.na (b['n']) || b['n'] <= 0) {
         1
       } else {
         binom.test (b['x'], b['n'], p=p, alternative="greater")$p.value
@@ -153,7 +153,7 @@ server <- shinyServer(function(input, output, session) {
 
   get_report_date <- function (result) {
 
-    suppressWarnings (unlist(sapply (strsplit (result, "-"), function (x) {
+    suppressWarnings (unlist(sapply (strsplit (result, "-|_"), function (x) {
 
        x[which (nchar(x) == 8 & sapply (x, function (y) !is.na(as.numeric(y))))]
       
@@ -172,11 +172,14 @@ server <- shinyServer(function(input, output, session) {
       
       # getting url for data
       
-      # thepage = readLines('https://www.ssi.dk/sygdomme-beredskab-og-forskning/sygdomsovervaagning/c/covid19-overvaagning/arkiv-med-overvaagningsdata-for-covid19')
       thepage = readLines('https://covid19.ssi.dk/overvagningsdata/download-fil-med-overvaagningdata')
       thepage <- unlist (strsplit (thepage, "</a><a"))
       
-      lines <- grepl ("https", thepage) & grepl ("rapport", tolower(thepage))& grepl ("data-epidemi", tolower(thepage))
+      lines <- grepl ("https", thepage) & 
+               grepl ("overvagning", tolower(thepage)) & 
+               (grepl ("data-epidemi", tolower(thepage)) |
+                grepl ("overvaagningsdata-covid19", tolower(thepage)))
+      
       
       datalines <- thepage[lines]
       
@@ -194,8 +197,7 @@ server <- shinyServer(function(input, output, session) {
       print ("downloading data")
       
       report_date <- get_report_date (result)
-      #length (report_date) == length (result))
-     
+      
       # remove duplicated entries
       result <- result[!duplicated (report_date)]
       report_date <- report_date[!duplicated (report_date)]
@@ -203,7 +205,7 @@ server <- shinyServer(function(input, output, session) {
       
       # sort entries with most recent entry first
       result <- result[order (as.Date(report_date, format="%d%m%Y"), decreasing = T)]
-        
+      
       map (result[1], function (x) {
         
         print (x)
@@ -305,8 +307,6 @@ server <- shinyServer(function(input, output, session) {
       
       colnames (df.tests)[1] <- "date"
       df.tests$date <- as.Date (df.tests$date)
-      
-      print (colnames (df.tests))
       
       colnames (df.tests) <- char_fix (colnames (df.tests))
       
@@ -416,11 +416,13 @@ server <- shinyServer(function(input, output, session) {
     
     # sum the last 5 days
     recent_dates <- unique (df.regional$date) %>% tail (5)
+    print (recent_dates)
     
     df.recent <- df.regional %>% filter (date %in% recent_dates) %>%
       group_by (municipal_name) %>%
       summarize (ntested = sum(ntested),
-                 npositive = sum (npositive)) %>%
+                 npositive = sum (npositive),
+                 date = recent_dates %>% tail(1)) %>%
       mutate (pct_pos = npositive / ntested,
               date = recent_dates %>% tail(1))
     
