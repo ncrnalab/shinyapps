@@ -466,15 +466,22 @@ server <- shinyServer(function(input, output, session) {
     data.m$var <- factor (data.m$var, levels = c("npositive", "pct_pos", "ntested"))
     data.m$legend <- factor (plegend[as.character (data.m$p < 0.05)], levels = as.character (plegend))
     
+    # Compare with last year...
+    
+    sep_dates <- separate(data.m, "date", c("Year", "Month", "Day"), sep = "-")
+    data.m$year <- sep_dates$Year
+    data.m$day <- as.Date (paste (sep_dates$Month, sep_dates$Day, sep="-"), format="%m-%d") 
+    
     
     g <- ggplot () + 
-      geom_line(data=data.m %>% filter (var != "ntested"), aes (x=date, y=val, group=municipal_name), color="black", alpha=0.3) + 
-      geom_point(data=data.m %>% filter (var != "ntested"), aes (x=date, y=val, text=paste ("Number of positives:", npos), color = legend)) + 
+      geom_line(data=data.m %>% filter (var != "ntested"), aes (x=day, y=val, group=paste (municipal_name, year)), color="black", alpha=0.3) + 
+      geom_point(data=data.m %>% filter (var != "ntested"), aes (x=day, y=val, text=paste ("Number of positives:", npos), color = legend, alpha=year)) + 
       scale_color_manual(values = pcolor) + 
-      geom_line(data=data.m %>% filter (var == "ntested"), aes (x=date, y=val), color="black") + 
+      geom_line(data=data.m %>% filter (var == "ntested"), aes (x=day, y=val, alpha=year), color="black") + 
       facet_wrap (~var, nrow=3, scales="free_y", labeller = as_labeller(labeller_general)) +
       labs (x="", y="", color="") +
-      ggtheme 
+      ggtheme + theme (legend.position = "none")
+    
     
     ggplotly (g) 
     
